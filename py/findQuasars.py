@@ -5,7 +5,7 @@
 import numpy as np
 import pyfits
 print "Loading..."
-fi=pyfits.open ('data//spAll-v5_10_0.fits')
+fi=pyfits.open ('spAll-v5_10_0.fits', memmap=True)
 da=fi[1].data
 print "done"
 
