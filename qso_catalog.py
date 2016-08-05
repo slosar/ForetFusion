@@ -42,18 +42,14 @@ class Qso_catalog():
         # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
         self.df_fits  = self.df_fits.query(condition)
 
-
         # and satisfy the bit condition
         a =[]
         for targ, bits in targets.iteritems():
             a.append(self.searching_quasars(targ, bits))
-
         self.df_qsos = self.df_fits[reduce(lambda x, y: x | y, a)].copy()
 
-        # and THING_ID != -1
-        print 'Total qsos (Bit_condition:Ok & CLASS=OBJTYPE=QSO & THING_ID == -1)   =', len(self.df_qsos.query('THING_ID == -1'))
-        self.df_qsos  = self.df_qsos.query('THING_ID != -1')
-        print 'Total qsos (Bit_condition:Ok & CLASS=OBJTYPE=QSO & THING_ID != -1)   =', len(self.df_qsos)
+
+        print 'Total qsos (Bit_condition:Ok & %s='%(condition), len(self.df_qsos)
         return 0
 
 
@@ -78,9 +74,8 @@ class Qso_catalog():
 
 
     def pix_uniqueid(self, pix_id, repetitions= 2):
-        """Given a pixel, return the THING_ID and the number is repeated"""
+        """Given a pixel, return the THING_ID and the number of times is repeated"""
         rep_thing_id = self.df_qsos.query('PIX == {}'.format(pix_id)).groupby('THING_ID').size()
-        #print '\n {pixel, {THING_ID: #repeated}}'
 
         if not rep_thing_id[rep_thing_id >= repetitions].empty:
             self.uniqeid = dict(rep_thing_id[rep_thing_id >= repetitions])
@@ -109,9 +104,9 @@ class Qso_catalog():
 
         web_file = []
         for plate, file in zip(plate_n, files):
-            #print 'Getting file {} from the web'.format(file)
-            #if not os.path.isfile(file):
-            #    Get_files.get_web_files(plate, file)
+            print 'Getting file {} from the web'.format(file)
+            if not os.path.isfile(file):
+                Get_files.get_web_files(plate, file)
 
             web_file.append('v5_10_0/spectra/%s/%s'%(plate, file))
 
@@ -143,7 +138,7 @@ class Qso_catalog():
         return all_qsos
 
 
-    def plot_coadds(self, all_qsos):
+    def plot_coadds(self, thingid, all_qsos):
         plt.figure(figsize = (18, 8))
         xlimits = [3.55,4]
         ylimits = [-10,20]
@@ -155,13 +150,14 @@ class Qso_catalog():
         ax2 = plt.subplot(1,2,2)
         all_qsos['coadd'].plot(label='coad', xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
-
+        plt.title('THING_ID: %s'%(thingid))
         plt.show(block=True)
 
 
 if __name__=='__main__':
+
+    #read the full file
     if False:
-        #read the full file:
         file_name = 'spAll-v5_10_0.fits'
         columns   = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','EBOSS_TARGET0','EBOSS_TARGET1', 'etc....']
         df_qsos   = Get_files.read_fits(file_name, columns)
@@ -179,7 +175,8 @@ if __name__=='__main__':
 
 
     # filter qsos with CLASS,OBJTYPE and THING_ID != -1
-    Qsos.filtering_qsos(targets, condition='CLASS== "QSO".ljust(6) & OBJTYPE=="SKY".ljust(16) | OBJTYPE=="NA".ljust(16)')
+    condition = 'CLASS== "QSO".ljust(6) & (OBJTYPE=="QSO".ljust(16) | OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
+    Qsos.filtering_qsos(targets, condition= condition)
 
     # Compute healpix
     Qsos.adding_pixel_column()
@@ -189,22 +186,21 @@ if __name__=='__main__':
         print '\n  *** just checking'
         print Qsos.df_qsos.query('THING_ID == 497865723').head()
 
-    columns    = ['flux','loglam','ivar','and_mask','or_mask', 'sky', 'wdisp', 'model']
+    spec_columns    = ['flux','loglam','ivar','and_mask','or_mask', 'sky', 'wdisp', 'model']
 
-    f = open('SpAll_files.csv','w')
-    f.write('#Files with repeated THING_ID \n')
-    # Given a pixel number, find repeated THINGS_ID, and print only > max_rep
+    #f = open('SpAll_files.csv','w')
+    #f.write('#Files with repeated THING_ID \n')
+    # Given a pixel number, find repeated THINGS_ID, and print only >= reps
     for i, lpix in enumerate(Qsos.unique_pixels):
         thingid_repeat = Qsos.pix_uniqueid(lpix, repetitions= 2)
-        #print {lpix: thingid_repeat}
-        print i, lpix
+        print {lpix: thingid_repeat}
+        #print i, lpix
         if thingid_repeat != 0:
             for ids in thingid_repeat:
                  ## Get files (from web) given a THING_ID
                 qsos_files, web_file = Qsos.get_files(thing_id= ids)
-                #all_qsos   = Qsos.coadds(qsos_files, columns)
+                all_qsos   = Qsos.coadds(qsos_files, spec_columns)
+                Qsos.plot_coadds(ids, all_qsos)
 
-                #Qsos.plot_coadds(all_qsos)
-
-                for i in web_file:
-                    f.write(i+'\n')
+                #for i in web_file:
+                 #   f.write(i+'\n')
