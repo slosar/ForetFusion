@@ -25,7 +25,7 @@ class Qso_catalog():
         self.df_fits     = df_fits
         self.verbose     = verbose
         self.Npix_side   = 2**5
-
+        self.del_chisq   = 4
 
     def searching_quasars(self, data_column, mask_bit):
         """Filter the quasar according to the bit array"""
@@ -98,109 +98,155 @@ class Qso_catalog():
         fiberids = self.get_names(thing_id, 'FIBERID')
         plate_n  = ['%s'%(plate) for plate in plates]
 
-        files    = ['spec-%s-%s-%s.fits'%(plate, mjd, str(fiberid).zfill(4))
+        qso_files= ['spec-%s-%s-%s'%(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
-
-        web_file = []
-        for plate, file in zip(plate_n, files):
-            print 'Getting file {} from the web'.format(file)
+        for plate, file in zip(plate_n, qso_files):
+            file += '.fits'
             if not os.path.isfile(file):
+                print 'Getting file {} from the web'.format(file)
                 Get_files.get_web_files(plate, file)
 
-            web_file.append('v5_10_0/spectra/%s/%s'%(plate, file))
-
-        return files, web_file
+        return qso_files
 
 
 
-    def stack_repeated(self, qsos_files, columns):
+    def stack_repeated(self, qso_files, columns):
         stack_qsos = []
-        for i, stacks in enumerate(qsos_files):
-            stack_qsos.append(Get_files.read_fits(stacks, columns).set_index('loglam'))
-            stack_qsos[i]['flux_%s'%(i)] = stack_qsos[i]['flux']
-            stack_qsos[i]['ivar_%s'%(i)] = stack_qsos[i]['ivar']
+        for i, fqso in enumerate(qso_files):
+            stack_qsos.append(Get_files.read_fits(fqso, columns).set_index('loglam'))
+            stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
+            stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
 
-        result   = pd.concat([stack_qsos[j][['flux_%s'%(j),'ivar_%s'%(j)]] for j, _ in enumerate(qsos_files)], axis=1)
+        result   = pd.concat([stack_qsos[j][['flux_%s'%(stacks),'ivar_%s'%(stacks)]] for j, stacks in enumerate(qso_files)], axis=1)
         return result.fillna(0).copy()
 
 
 
-    def coadds(self, qsos_files, columns):
-        all_qsos = self.stack_repeated(qsos_files, columns)
-        all_qsos['sum_flux_ivar']=0
-        all_qsos['sum_ivar']=0
-        for i, _ in enumerate(qsos_files):
-            all_qsos['sum_flux_ivar'] += all_qsos['flux_%s'%(i)]*all_qsos['ivar_%s'%(i)]
-            all_qsos['sum_ivar']      += all_qsos['ivar_%s'%(i)]
-        all_qsos['coadd'] = all_qsos['sum_flux_ivar']/all_qsos['sum_ivar']
+    def coadds(self, qso_files, columns):
+        dfall_qsos = self.stack_repeated(qso_files, columns)
+        dfall_qsos['sum_flux_ivar'] =0
+        dfall_qsos['sum_ivar']      =0
+        for i, fqso in enumerate(qso_files):
+            dfall_qsos['sum_flux_ivar'] += dfall_qsos['flux_%s'%(fqso)]*dfall_qsos['ivar_%s'%(fqso)]
+            dfall_qsos['sum_ivar']      += dfall_qsos['ivar_%s'%(fqso)]
+        dfall_qsos['coadd'] = dfall_qsos['sum_flux_ivar']/dfall_qsos['sum_ivar']
 
-        return all_qsos
+        dfall_qsos = dfall_qsos.fillna(0).copy()
+        return dfall_qsos
 
 
-    def plot_coadds(self, thingid, all_qsos):
+
+    def calc_chisq(self, qso_files, dfall_qsos):
+        chi_sq_all =[]
+        for i, fqso in enumerate(qso_files):
+            chis_sq = np.sum((dfall_qsos['coadd'].values - dfall_qsos['flux_%s'%(fqso)].values)**2*dfall_qsos['ivar_%s'%(fqso)].values)
+            chi_sq_all.append(chis_sq/len(dfall_qsos.values))
+        return dict(zip(qso_files, chi_sq_all))
+
+
+
+    def select_chisq(self, zipchisq):
+        rm_file = []
+        for files, chisq in zipchisq.iteritems():
+            if chisq > self.del_chisq:
+                rm_file.append(files)
+
+        for rm in rm_file:
+            del zipchisq[rm]
+
+        return zipchisq.keys()
+
+
+
+    def plot_coadds(self, dfall_qsos, thingid, zipchisq):
         plt.figure(figsize = (18, 8))
-        xlimits = [3.55,4]
-        ylimits = [-10,20]
-        ax = plt.subplot(1,2,1)
-        for i,_ in enumerate(qsos_files):
-            all_qsos['flux_%s'%(i)].plot(label=qsos_files[i],xlim=xlimits, ylim=ylimits, ax=ax)
+        xlimits = [3.55, 4]
+        ylimits = [-10, 25]
+        ax = plt.subplot(1, 2, 1)
+        for fqso, chisq in zipchisq.iteritems():
+            dfall_qsos['flux_%s'%(fqso)].plot(label='%s  , chisq=%s'%(fqso, chisq),
+                                         xlim=xlimits, ylim=ylimits, ax=ax)
         plt.legend(loc='best')
 
         ax2 = plt.subplot(1,2,2)
-        all_qsos['coadd'].plot(label='coad', xlim=xlimits, ylim=ylimits, ax=ax2)
+        dfall_qsos['coadd'].plot(label='coad', xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
         plt.title('THING_ID: %s'%(thingid))
         plt.show(block=True)
+        return 0
+
+
+
+
+class Ini_params():
+    def __init__(self):
+
+        self.verbose   = False
+        self.sub_file  = 'subset_spAll-v5_10_0.csv'
+        self.full_file = 'spAll-v5_10_0.fits'
+
+        self.bit_boss  = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
+        self.bit_eboss = [10,11,12,13,14,15,16,17,18]
+
+        self.condition = 'CLASS== "QSO".ljust(6) & (OBJTYPE=="QSO".ljust(16) | ' \
+                         'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
+
+        self.targets   = {'BOSS_TARGET1': self.bit_boss, 'EBOSS_TARGET0': self.bit_eboss,
+                                   'EBOSS_TARGET1': self.bit_eboss}
+
+        self.spall_cols = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1',
+                           'EBOSS_TARGET0','EBOSS_TARGET1']
+
+        self.spec_cols  = ['flux','loglam','ivar','and_mask','or_mask', 'sky', 'wdisp', 'model']
+
+
+    def do_nothing(self):
+        pass
 
 
 if __name__=='__main__':
+    Pars      = Ini_params()
 
     #read the full file
-    if False:
-        file_name = 'spAll-v5_10_0.fits'
-        columns   = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','EBOSS_TARGET0','EBOSS_TARGET1', 'etc....']
-        df_qsos   = Get_files.read_fits(file_name, columns)
+    if False: df_qsos   = Get_files.read_fits(Pars.full_file, Pars.spall_cols)
 
     #instead read the subset we're interested on
-    df_fits   = Get_files.read_subset_fits('subset_spAll-v5_10_0.csv')
+    df_fits   = Get_files.read_subset_fits(Pars.sub_file)
+    Qsos      = Qso_catalog(df_fits, verbose= Pars.verbose)
 
-    Qsos      = Qso_catalog(df_fits, verbose= False)
-
-    bit_boss  = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
-    bit_eboss = [10,11,12,13,14,15,16,17,18]
-    targets   = {'BOSS_TARGET1': bit_boss, 'EBOSS_TARGET0': bit_eboss, 'EBOSS_TARGET1': bit_eboss}
-    for targ, bits in targets.iteritems():
+    for targ, bits in Pars.targets.iteritems():
         print 'Quasars with Bit_condition:Ok in {} ='.format(targ), Qsos.searching_quasars(targ, bits).sum()
 
-
     # filter qsos with CLASS,OBJTYPE and THING_ID != -1
-    condition = 'CLASS== "QSO".ljust(6) & (OBJTYPE=="QSO".ljust(16) | OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
-    Qsos.filtering_qsos(targets, condition= condition)
+    Qsos.filtering_qsos(Pars.targets, condition= Pars.condition)
 
     # Compute healpix
     Qsos.adding_pixel_column()
 
+    if False: print Qsos.df_qsos.query('THING_ID == 497865723').head()
 
-    if False:
-        print '\n  *** just checking'
-        print Qsos.df_qsos.query('THING_ID == 497865723').head()
-
-    spec_columns    = ['flux','loglam','ivar','and_mask','or_mask', 'sky', 'wdisp', 'model']
-
-    #f = open('SpAll_files.csv','w')
-    #f.write('#Files with repeated THING_ID \n')
-    # Given a pixel number, find repeated THINGS_ID, and print only >= reps
-    for i, lpix in enumerate(Qsos.unique_pixels):
-        thingid_repeat = Qsos.pix_uniqueid(lpix, repetitions= 2)
+    # Given a helpix number, find repeated THINGS_ID, and print only those with >= repetitions
+    print '\n ** {healpix: {THING_ID: num_reps}}'
+    for _, lpix in enumerate(Qsos.unique_pixels):
+        thingid_repeat = Qsos.pix_uniqueid(lpix, repetitions= 5)
         print {lpix: thingid_repeat}
-        #print i, lpix
         if thingid_repeat != 0:
-            for ids in thingid_repeat:
-                 ## Get files (from web) given a THING_ID
-                qsos_files, web_file = Qsos.get_files(thing_id= ids)
-                all_qsos   = Qsos.coadds(qsos_files, spec_columns)
-                Qsos.plot_coadds(ids, all_qsos)
+            for thids in thingid_repeat:
+                flag = 1
+                #Get specs (from web) given a THING_ID
+                qso_files = Qsos.get_files(thing_id= thids)
+                while flag:
+                    #coadd files and compute chisq
+                    dfall_qsos = Qsos.coadds(qso_files, Pars.spec_cols)
+                    zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
-                #for i in web_file:
-                 #   f.write(i+'\n')
+                    #make some plots
+                    Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
+
+                    #check specs that have chisq > self.del_chisq
+                    #if none, get out
+                    flag = len(qso_files) - len(Qsos.select_chisq(zipchisq))
+                    qso_files = Qsos.select_chisq(zipchisq)
+
+

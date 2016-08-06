@@ -9,7 +9,7 @@ from base64 import b64encode
 
 
 def read_subset_fits(file_name):
-    """Reading the subsample of spAll we are interested in"""
+    """Read the subsample of spAll we are interested in. Return a DataFrame"""
     if not os.path.isfile(file_name):
         sys.exit('File not found: {}'.format(file_name))
 
@@ -19,15 +19,18 @@ def read_subset_fits(file_name):
 
 
 
+
 def read_fits(file_name, columns):
-    """Read selected columns in the spAll file, and store them as a DataFrame"""
+    """Read selected columns in the spAll file. Return a DataFrame"""
+    file_name += '.fits'
     if not os.path.isfile(file_name):
         sys.exit('File not found: {}'.format(file_name))
 
     fits          = fitsio.FITS(file_name)
     fits_columns  = columns
 
-    #http://stackoverflow.com/questions/30283836/creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
+    #http://stackoverflow.com/questions/30283836/
+    # creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
     d  = {col: fits[1][col].read().byteswap().newbyteorder() for col in fits_columns}
     df = pd.DataFrame(d)
     return df
