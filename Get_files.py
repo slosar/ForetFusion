@@ -38,10 +38,20 @@ def read_fits(file_name, columns):
 
 
 
-def get_web_files(plate, file_name):
-    url = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/%s/%s'%(plate, file_name)
+def get_bnl_files(plate, file_name):
+    """nasty hack, but change it later"""
+    print 'Getting file {} from the bnl'.format(file_name)
+    os.system('scp astro:/data/boss/v5_10_0/spectra/{}/{} .'.format(plate, file_name))
+    return 0
+
+
+
+
+def get_web_files(plate, file_name, passwd):
+    print 'Getting file {} from the web'.format(file_name)
+    url = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/{}/{}'.format(plate, file_name)
     username = 'sdss'
-    password = '2.5-meters'
+    password = '{}'.format(passwd)
 
     # I have had to add a carriage return ('%s:%s\n'), but
     # you may not have to.
@@ -53,10 +63,11 @@ def get_web_files(plate, file_name):
     br.addheaders.append(
       ('Authorization', 'Basic %s' % b64login )
     )
-
     br.open(url)
     r = br.response()
     data = r.read()
 
     with open('%s'%(file_name),'wb') as output:
           output.write(data)
+
+    return 0
