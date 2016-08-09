@@ -1,5 +1,5 @@
 
-import os
+import os, sys
 import pylab
 import numpy as np
 import healpy as hp
@@ -27,6 +27,7 @@ class Ini_params():
         self.Npix_side = 2**5
         self.verbose   = False
         self.rep_thid  = 5
+        self.direct    = 'data/'
         self.full_file = 'spAll-v5_10_0.fits'
         self.sub_file  = 'subset_spAll-v5_10_0.csv'
 
@@ -42,7 +43,7 @@ class Ini_params():
         self.spall_cols = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1',
                            'EBOSS_TARGET0','EBOSS_TARGET1']
 
-        self.spec_cols  = ['flux','loglam','ivar','and_mask','or_mask', 'sky', 'wdisp', 'model']
+        self.spec_cols  = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
 
     def do_nothing(self):
@@ -56,6 +57,7 @@ class Qso_catalog():
     def __init__(self, df_fits, verbose = True):
         self.df_fits     = df_fits
         self.verbose     = verbose
+        self.chisq_dist  = []
         #Ini_params.__init__(self)
 
 
@@ -114,7 +116,7 @@ class Qso_catalog():
         if not rep_thing_id[rep_thing_id >= repetitions].empty:
             uniqeid = dict(rep_thing_id[rep_thing_id >= repetitions])
         else:
-            uniqeid = 0
+            uniqeid = {}
         return uniqeid
 
 
@@ -126,7 +128,7 @@ class Qso_catalog():
 
 
 
-    def get_files(self, thing_id ='thing_id', passwd= None):
+    def get_files(self, direct, thing_id ='thing_id', passwd= None):
         plates   = self.get_names(thing_id, 'PLATE')
         mjds     = self.get_names(thing_id, 'MJD')
         fiberids = self.get_names(thing_id, 'FIBERID')
@@ -136,21 +138,21 @@ class Qso_catalog():
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
         for plate, file in zip(plate_n, qso_files):
-            file += '.fits'
-            if not os.path.isfile(file):
+            file = '{}.fits'.format(file)
+            if not os.path.isfile(direct + file):
                 if passwd is None:
-                    Get_files.get_bnl_files(plate, file)
+                    Get_files.get_bnl_files(direct, plate, file)
                 else:
-                    Get_files.get_web_files(plate, file, passwd)
+                    Get_files.get_web_files(direct, plate, file, passwd)
         return qso_files
 
 
 
 
-    def stack_repeated(self, qso_files, columns):
+    def stack_repeated(self, direct, qso_files, columns):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
-            stack_qsos.append(Get_files.read_fits(fqso, columns).set_index('loglam'))
+            stack_qsos.append(Get_files.read_fits(direct, fqso, columns).set_index('loglam'))
             stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
             stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
 
@@ -159,8 +161,8 @@ class Qso_catalog():
 
 
 
-    def coadds(self, qso_files, columns):
-        dfall_qsos = self.stack_repeated(qso_files, columns)
+    def coadds(self, direct, qso_files, columns):
+        dfall_qsos = self.stack_repeated(direct, qso_files, columns)
         dfall_qsos['sum_flux_ivar'] =0
         dfall_qsos['sum_ivar']      =0
         for i, fqso in enumerate(qso_files):
@@ -212,6 +214,18 @@ class Qso_catalog():
         plt.show(block=True)
         return 0
 
+
+    def plot_chisq_dist(self, zipchisq):
+        for i in zipchisq.values():
+            self.chisq_dist.append(i)
+
+        plt.hist(self.chisq_dist, bins=100, range=(0,10))
+        #plt.show(block=True)
+        plt.ylabel('#')
+        plt.xlabel('chisq')
+        plt.title('chisq Histogram')
+        plt.savefig('chisq.pdf')
+        return 0
 
 
 

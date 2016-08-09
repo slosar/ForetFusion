@@ -19,10 +19,10 @@ import Get_files
 Pars = Ini_params()
 
 # read the full SpAll file
-if False: df_qsos = Get_files.read_fits(Pars.full_file, Pars.spall_cols)
+if False: df_qsos = Get_files.read_fits(Pars.direct, Pars.full_file, Pars.spall_cols)
 
 # instead read the subset we're interested on
-df_fits   = Get_files.read_subset_fits(Pars.sub_file)
+df_fits   = Get_files.read_subset_fits(Pars.direct, Pars.sub_file)
 Qsos      = Qso_catalog(df_fits, verbose= Pars.verbose)
 
 for targ, bits in Pars.targets.iteritems():
@@ -43,24 +43,24 @@ print '\n ** {healpix: {THING_ID: num_reps}}'
 bnl    = raw_input('Are you @ bnl (y/n): ')
 passwd = raw_input('sdss passwd:') if bnl == 'n' else None
 
+
 for _, lpix in enumerate(unique_pixels):
     thingid_repeat = Qsos.pix_uniqueid(lpix, repetitions= Pars.rep_thid)
     print {lpix: thingid_repeat}
-    if thingid_repeat != 0:
-        for thids in thingid_repeat:
-            #Get specs (from web) given a THING_ID
-            qso_files = Qsos.get_files(thing_id= thids, passwd=passwd)
-            flag = 1
-            while flag:
-                #coadd files and compute chisq
-                dfall_qsos = Qsos.coadds(qso_files, Pars.spec_cols)
-                zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
+    if not thingid_repeat: continue
+    for thids in thingid_repeat:
+        #Get specs (from web) given a THING_ID
+        qso_files = Qsos.get_files(Pars.direct, thing_id= thids, passwd=passwd)
+        flag = 1
+        while flag:
+            #coadd files and compute chisq
+            dfall_qsos = Qsos.coadds(Pars.direct, qso_files, Pars.spec_cols)
+            zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
-                print zipchisq.values()
-                #make some plots
-                Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
-
-                #check specs that have chisq > self.del_chisq, if none, get out
-                flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
-                qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
-    else: continue
+            #make some plots
+            #Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
+            if flag==1: Qsos.plot_chisq_dist(zipchisq)
+            flag=0
+            #check specs that have chisq > self.del_chisq, if none, get out
+            #flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
+            #qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
