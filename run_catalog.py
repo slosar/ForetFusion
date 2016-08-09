@@ -44,7 +44,7 @@ bnl    = raw_input('Are you @ bnl (y/n): ')
 passwd = raw_input('sdss passwd:') if bnl == 'n' else None
 
 
-for _, lpix in enumerate(unique_pixels):
+for _, lpix in enumerate(unique_pixels[:100]):
     thingid_repeat = Qsos.pix_uniqueid(lpix, repetitions= Pars.rep_thid)
     print {lpix: thingid_repeat}
     if not thingid_repeat: continue
@@ -53,14 +53,15 @@ for _, lpix in enumerate(unique_pixels):
         qso_files = Qsos.get_files(Pars.direct, thing_id= thids, passwd=passwd)
         flag = 1
         while flag:
+            print 'doing something'
             #coadd files and compute chisq
             dfall_qsos = Qsos.coadds(Pars.direct, qso_files, Pars.spec_cols)
             zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
             #make some plots
-            #Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
+            Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
             if flag==1: Qsos.plot_chisq_dist(zipchisq)
-            flag=0
+
             #check specs that have chisq > self.del_chisq, if none, get out
-            #flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
-            #qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
+            flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
+            qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)

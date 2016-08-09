@@ -26,7 +26,7 @@ class Ini_params():
         self.del_chisq = 4
         self.Npix_side = 2**5
         self.verbose   = False
-        self.rep_thid  = 5
+        self.rep_thid  = 4
         self.direct    = 'data/'
         self.full_file = 'spAll-v5_10_0.fits'
         self.sub_file  = 'subset_spAll-v5_10_0.csv'
