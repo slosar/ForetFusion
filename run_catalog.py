@@ -25,6 +25,7 @@ if False: df_qsos = Get_files.read_fits(Pars.direct, Pars.full_file, Pars.spall_
 df_fits   = Get_files.read_subset_fits(Pars.direct, Pars.sub_file)
 Qsos      = Qso_catalog(df_fits, verbose= Pars.verbose)
 
+
 for targ, bits in Pars.targets.iteritems():
     print "Quasars with Bit_condition:Ok in {} =".format(targ), Qsos.searching_quasars(targ, bits).sum()
 
@@ -50,12 +51,12 @@ for _, lpix in enumerate(unique_pixels[:100]):
     if not thingid_repeat: continue
     for thids in thingid_repeat:
         #Get specs (from web) given a THING_ID
-        qso_files = Qsos.get_files(Pars.direct, thing_id= thids, passwd=passwd)
+        qso_files, plate = Qsos.get_files(Pars.direct, thing_id= thids, passwd=passwd)
         flag = 1
         while flag:
             print 'doing something'
             #coadd files and compute chisq
-            dfall_qsos = Qsos.coadds(Pars.direct, qso_files, Pars.spec_cols)
+            dfall_qsos = Qsos.coadds(Pars.direct, plate, qso_files, Pars.spec_cols)
             zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
             #make some plots

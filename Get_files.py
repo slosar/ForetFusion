@@ -1,7 +1,7 @@
 
 import fitsio
 import os, sys
-import mechanize
+#import mechanize
 import pandas as pd
 from base64 import b64encode
 
@@ -23,7 +23,7 @@ def read_subset_fits(direct, file_name):
 
 def read_fits(direct, file_name, columns):
     """Read selected columns in the spAll file. Return a DataFrame"""
-    file_name = '{}{}.fits'.format(direct, file_name)
+    file_name = '{}spectra/{}.fits'.format(direct, file_name)
     if not os.path.isfile(file_name):
         sys.exit('File not found: {}'.format(file_name))
 

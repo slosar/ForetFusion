@@ -61,7 +61,6 @@ class Qso_catalog():
         #Ini_params.__init__(self)
 
 
-
     def searching_quasars(self, data_column, mask_bit):
         """Filter the quasar according to the bit array,
         return a Boolean array wherever the quasar is"""
@@ -144,14 +143,15 @@ class Qso_catalog():
                     Get_files.get_bnl_files(direct, plate, file)
                 else:
                     Get_files.get_web_files(direct, plate, file, passwd)
-        return qso_files
+        return qso_files, plate_n
 
 
 
 
-    def stack_repeated(self, direct, qso_files, columns):
+    def stack_repeated(self, direct, plate, qso_files, columns):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
+	    fqso = plate+'/'+fqso
             stack_qsos.append(Get_files.read_fits(direct, fqso, columns).set_index('loglam'))
             stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
             stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
@@ -161,8 +161,8 @@ class Qso_catalog():
 
 
 
-    def coadds(self, direct, qso_files, columns):
-        dfall_qsos = self.stack_repeated(direct, qso_files, columns)
+    def coadds(self, direct, plate, qso_files, columns):
+        dfall_qsos = self.stack_repeated(direct, plate, qso_files, columns)
         dfall_qsos['sum_flux_ivar'] =0
         dfall_qsos['sum_ivar']      =0
         for i, fqso in enumerate(qso_files):
