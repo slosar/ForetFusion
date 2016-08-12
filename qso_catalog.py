@@ -1,11 +1,11 @@
 
-import os, sys
 import pylab
 import numpy as np
 import healpy as hp
-import pandas as pd
-import Get_files
 import matplotlib.pyplot as plt
+import mechanize
+from base64 import b64encode
+from get_files import *
 
 pd.set_option('display.mpl_style', 'default')
 
@@ -23,11 +23,12 @@ pylab.rcParams.update(params1)
 class Ini_params():
     def __init__(self):
 
-        self.del_chisq = 4
-        self.Npix_side = 2**5
+        self.del_chisq = 4                              #Thresold to discriminate from coadds
+        self.rep_thid  = 4                              #Times we want a THING_ID repeated
+        self.Npix_side = 2**5                           #Nside to compute healpix
         self.verbose   = False
-        self.rep_thid  = 4
-        self.direct    = 'data/'
+        self.dir_fits  = 'data/'
+        self.dir_spec  = self.dir_fits + 'spectra/'
         self.full_file = 'spAll-v5_10_0.fits'
         self.sub_file  = 'subset_spAll-v5_10_0.csv'
 
@@ -53,12 +54,13 @@ class Ini_params():
 
 
 
-class Qso_catalog():
+class Qso_catalog(Ini_params):
     def __init__(self, df_fits, verbose = True):
         self.df_fits     = df_fits
         self.verbose     = verbose
         self.chisq_dist  = []
-        #Ini_params.__init__(self)
+        Ini_params.__init__(self)
+
 
 
     def searching_quasars(self, data_column, mask_bit):
@@ -71,7 +73,7 @@ class Qso_catalog():
 
 
 
-    def filtering_qsos(self, targets, condition):
+    def filtering_qsos(self, condition):
         """Filter only the quasars withing the dataFrame"""
 
         # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
@@ -79,7 +81,7 @@ class Qso_catalog():
 
         # and satisfy the bit condition
         a =[]
-        for targ, bits in targets.iteritems():
+        for targ, bits in self.targets.iteritems():
             a.append(self.searching_quasars(targ, bits))
         self.df_qsos = self.df_fits[reduce(lambda x, y: x | y, a)].copy()
 
@@ -90,12 +92,12 @@ class Qso_catalog():
 
 
 
-    def adding_pixel_column(self, Npix_side):
+    def adding_pixel_column(self):
         """Computing healpix pixel given 'DEC' and 'RA' """
         phi_rad   = lambda ra : ra*np.pi/180.
         theta_rad = lambda dec: (90.0 - dec)*np.pi/180.
 
-        self.df_qsos['PIX'] = hp.ang2pix(Npix_side, theta_rad(self.df_qsos['DEC']), phi_rad(self.df_qsos['RA']))
+        self.df_qsos['PIX'] = hp.ang2pix(self.Npix_side, theta_rad(self.df_qsos['DEC']), phi_rad(self.df_qsos['RA']))
         unique_pixels  = self.df_qsos['PIX'].unique()
         print 'Unique pixels: ', len(unique_pixels)
 
@@ -107,17 +109,51 @@ class Qso_catalog():
 
 
 
-
-    def pix_uniqueid(self, pix_id, repetitions= 2):
+    def pix_uniqueid(self, pix_id):
         """Given a pixel, return the THING_ID and the number of times is repeated"""
         rep_thing_id = self.df_qsos.query('PIX == {}'.format(pix_id)).groupby('THING_ID').size()
 
-        if not rep_thing_id[rep_thing_id >= repetitions].empty:
-            uniqeid = dict(rep_thing_id[rep_thing_id >= repetitions])
+        if not rep_thing_id[rep_thing_id >= self.rep_thid].empty:
+            uniqeid = dict(rep_thing_id[rep_thing_id >= self.rep_thid])
         else:
             uniqeid = {}
         return uniqeid
 
+
+    def get_bnl_files(self, plate, file_name):
+        """nasty hack, but change it later"""
+        print 'Getting file {} from the bnl'.format(file_name)
+        if not os.path.isdir('{}{}'.format(self.dir_spec, plate)):
+            os.system('mkdir {}{}'.format(self.dir_spec, plate))
+        os.system('scp astro:/data/boss/v5_10_0/spectra/{1} {2}{0}'.format(plate, file_name, self.dir_spec))
+        return 0
+
+
+
+    def get_web_files(self, file_name, passwd):
+        print 'Getting file {} from the web'.format(file_name)
+        url = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/{}'.format(file_name)
+        username = 'sdss'
+        password = '{}'.format(passwd)
+
+        # I have had to add a carriage return ('%s:%s\n'), but
+        # you may not have to.
+        b64login = b64encode('%s:%s' % (username, password))
+
+        br = mechanize.Browser()
+        br.set_handle_robots(False)
+
+        br.addheaders.append(
+          ('Authorization', 'Basic %s' % b64login )
+        )
+        br.open(url)
+        r = br.response()
+        data = r.read()
+
+        with open('{}{}'.format(self.dir_spec, file_name),'wb') as output:
+              output.write(data)
+
+        return 0
 
 
 
@@ -126,33 +162,31 @@ class Qso_catalog():
 
 
 
-
-    def get_files(self, direct, thing_id ='thing_id', passwd= None):
+    def get_files(self, thing_id ='thing_id', passwd= None):
         plates   = self.get_names(thing_id, 'PLATE')
         mjds     = self.get_names(thing_id, 'MJD')
         fiberids = self.get_names(thing_id, 'FIBERID')
         plate_n  = ['{}'.format(plate) for plate in plates]
 
-        qso_files= ['spec-%s-%s-%s'%(plate, mjd, str(fiberid).zfill(4))
+        qso_files= ['{0}/spec-{0}-{1}-{2}'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
         for plate, file in zip(plate_n, qso_files):
             file = '{}.fits'.format(file)
-            if not os.path.isfile(direct + file):
+            if not os.path.isfile(self.dir_spec + file):
                 if passwd is None:
-                    Get_files.get_bnl_files(direct, plate, file)
+                    self.get_bnl_files(plate, file)
                 else:
-                    Get_files.get_web_files(direct, plate, file, passwd)
-        return qso_files, plate_n
+                    self.get_web_files(plate, file, passwd)
+        return qso_files
 
 
 
 
-    def stack_repeated(self, direct, plate, qso_files, columns):
+    def stack_repeated(self, qso_files, columns):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
-	    fqso = plate+'/'+fqso
-            stack_qsos.append(Get_files.read_fits(direct, fqso, columns).set_index('loglam'))
+            stack_qsos.append(read_fits(self.dir_spec, fqso, columns).set_index('loglam'))
             stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
             stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
 
@@ -161,8 +195,8 @@ class Qso_catalog():
 
 
 
-    def coadds(self, direct, plate, qso_files, columns):
-        dfall_qsos = self.stack_repeated(direct, plate, qso_files, columns)
+    def coadds(self, qso_files, columns):
+        dfall_qsos = self.stack_repeated(qso_files, columns)
         dfall_qsos['sum_flux_ivar'] =0
         dfall_qsos['sum_ivar']      =0
         for i, fqso in enumerate(qso_files):
