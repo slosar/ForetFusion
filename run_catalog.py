@@ -37,9 +37,6 @@ if False: print Qsos.df_qsos.query('THING_ID == 497865723').head()
 # If we don't have the files stored, download them from either bnl or sdss website
 Qsos.ask_for_files()
 
-#print_qsos = open('SpAll_files.csv','w')
-#print_qsos.write('#Files with repeated THING_ID >= {}\n'.format(Pars.rep_thid))
-
 
 # Given a helpix number, find repeated THINGS_ID, and print only those with >= repetitions
 print '\n ** {healpix: {THING_ID: num_reps}}'
@@ -64,5 +61,3 @@ for _, lpix in enumerate(unique_pixels[:100]):
             #check specs that have chisq > self.del_chisq, if none, get out
             flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
             qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
-
-#print_qsos.close()

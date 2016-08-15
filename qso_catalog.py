@@ -160,9 +160,12 @@ class Qso_catalog(Ini_params):
 
 
 
-    def ask_for_files(self):
-        self.need_files = raw_input('Get files from bnl(1), sdss(2), I have them(No): ')
-        self.passwd     = raw_input('sdss passwd:') if self.need_files == '2' else None
+    def ask_for_files(self, get_them=False):
+        self.need_files= get_them
+        if get_them:
+            self.need_files = raw_input('Get files from bnl(1), sdss(2): ')
+            self.passwd     = raw_input('sdss passwd:') if self.need_files == '2' else None
+
         return 0
 
 
@@ -180,17 +183,28 @@ class Qso_catalog(Ini_params):
         qso_files= ['{0}/spec-{0}-{1}-{2}'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
-        if self.need_files != 'No':
+        if self.need_files:
             for plate, file in zip(plate_n, qso_files):
                 file = '{}.fits'.format(file)
                 if not os.path.isfile(self.dir_spec + file):
-                    print self.dir_spec + file
                     if self.passwd is None:
                         self.get_bnl_files(plate, file)
                     else:
                         self.get_web_files(file, self.passwd)
         return qso_files
 
+
+    def print_file_names(self):
+        nfile = 'SpAll_files.csv'
+        print 'printing names in {}'.format(nfile)
+        self.df_qsos['file_name'] =  'v5_10_0/spectra/' + self.df_qsos['PLATE'].astype(str) + '/spec-' + \
+                                     self.df_qsos['PLATE'].astype(str) + '-' + self.df_qsos['MJD'].astype(str)+ '-' + \
+                                     self.df_qsos['FIBERID'].astype(str).str.zfill(4)
+
+        with open(nfile ,'w') as f:
+             for name in self.df_qsos['file_name'].values:
+                 f.write(name + '\n')
+        return 0
 
 
 
