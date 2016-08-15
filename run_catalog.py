@@ -51,19 +51,18 @@ for _, lpix in enumerate(unique_pixels[:100]):
         #Get specs (from web or bnl) given a THING_ID
         qso_files = Qsos.get_files(thing_id= thids)
         #for names in qso_files: print_qsos.write('v5_10_0/spectra/' + names + '\n')
-        if False:
-            flag = 1
-            while flag:
-                #coadd files and compute chisq
-                dfall_qsos = Qsos.coadds(qso_files, Pars.spec_cols)
-                zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
+        flag = 1
+        while flag:
+            #coadd files and compute chisq
+            dfall_qsos = Qsos.coadds(qso_files, Pars.spec_cols)
+            zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
-                #make some plots
-                Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
-                if flag==1: Qsos.plot_chisq_dist(zipchisq)
+            #make some plots
+            Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
+            if flag==1: Qsos.plot_chisq_dist(zipchisq)
 
-                #check specs that have chisq > self.del_chisq, if none, get out
-                flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
-                qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
+            #check specs that have chisq > self.del_chisq, if none, get out
+            flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
+            qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
 
 #print_qsos.close()

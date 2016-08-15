@@ -23,16 +23,17 @@ pylab.rcParams.update(params1)
 class Ini_params():
     def __init__(self):
 
-        self.del_chisq = 4                              #Thresold to discriminate from coadds
-        self.rep_thid  = 4                              #Times we want a THING_ID repeated
-        self.Npix_side = 2**5                           #Nside to compute healpix
-        self.read_ask  = '3'                            #Assume we have the files
-        self.passwd    = None                           # sdss password
-        self.verbose   = False
-        self.dir_fits  = 'data/'
-        self.dir_spec  = self.dir_fits + 'spectra/'
-        self.full_file = 'spAll-v5_10_0.fits'
-        self.sub_file  = 'subset_spAll-v5_10_0.csv'
+        self.del_chisq  = 4                              #Thresold to discriminate from coadds
+        self.rep_thid   = 4                              #Times we want a THING_ID repeated
+        self.Npix_side  = 2**5                           #Nside to compute healpix
+        self.need_files = 'No'                            #Assume we have the files
+        self.passwd     = None                           # sdss password
+        self.verbose    = False
+        self.print_stat = True
+        self.dir_fits   = 'data/'
+        self.dir_spec   = self.dir_fits + 'spectra/'
+        self.full_file  = 'spAll-v5_10_0.fits'
+        self.sub_file   = 'subset_spAll-v5_10_0.csv'
 
         self.bit_boss  = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
         self.bit_eboss = [10,11,12,13,14,15,16,17,18]
@@ -160,8 +161,8 @@ class Qso_catalog(Ini_params):
 
 
     def ask_for_files(self):
-        self.read_ask = raw_input('Select files from bnl(1), sdss(2), I have them(3): ')
-        self.passwd   = raw_input('sdss passwd:') if self.read_ask == '2' else None
+        self.need_files = raw_input('Get files from bnl(1), sdss(2), I have them(No): ')
+        self.passwd     = raw_input('sdss passwd:') if self.need_files == '2' else None
         return 0
 
 
@@ -179,14 +180,15 @@ class Qso_catalog(Ini_params):
         qso_files= ['{0}/spec-{0}-{1}-{2}'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
-        if self.read_ask != '3':
+        if self.need_files != 'No':
             for plate, file in zip(plate_n, qso_files):
                 file = '{}.fits'.format(file)
                 if not os.path.isfile(self.dir_spec + file):
+                    print self.dir_spec + file
                     if self.passwd is None:
                         self.get_bnl_files(plate, file)
                     else:
-                        self.get_web_files(plate, file, self.passwd)
+                        self.get_web_files(file, self.passwd)
         return qso_files
 
 
