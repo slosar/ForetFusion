@@ -1,63 +1,81 @@
 
 """
-Running the qso_catalog.py:
-
-* It goes through the SpAll file and filter all qsos in the BOSS, EBOSS
-that satisfy the bit condition and also
-    'CLASS== "QSO" & (OBJTYPE=="QSO" | ''OBJTYPE=="NA".) & THING_ID != -1'
-* Computes the healpix given the RA and DEC, and group all of them by healpix.
-* Withing a healpix, finds the objects with the same THING_ID
-* Coadd them (average ivar*flux.) and compute the chisq
-* Loop over:  If the chisq is more than 4, eliminate that spec,
-    coadd again and get new chisq
+Same as run_catalog.py, but no comments and using mpi4py
 """
 
+import math
 from qso_catalog import *
 from get_files import *
+from mpi4py import MPI
 
-Pars = Ini_params()
 
-# read the full SpAll file or the subset we're interested on
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+
+
+def split_pixel(pixel, Qsos, rank):
+    with open('Chisq_dist_{}.csv'.format(rank), 'w') as write_stats, \
+    open('Chisq_dist_sec_{}.csv'.format(rank), 'w') as write_stats_two:
+	print 'Number of healpix:', len(pixel)
+        for i, lpix in enumerate(pixel):
+            thingid_repeat = Qsos.pix_uniqueid(lpix)
+            if not thingid_repeat: continue
+            if i%2 ==0: print i, {lpix: thingid_repeat}
+
+            for thids in thingid_repeat:
+                write_stats.flush(), write_stats_two.flush()
+	        qso_files = Qsos.get_files(thing_id= thids)
+
+                flag = 1
+                while flag:
+                    dfall_qsos = Qsos.coadds(qso_files, Qsos.spec_cols)
+                    zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
+
+                    #some plots
+                    #Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
+                    #if flag==1: Qsos.plot_chisq_dist(zipchisq)
+
+                    if flag: 
+			for chi in zipchisq.values(): write_stats.write(str(chi) + '\n')
+                 
+                    #check specs that have chisq > self.del_chisq, if none, get out
+                    flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Qsos.del_chisq))
+                    if not flag:
+			for chi in zipchisq.values(): write_stats_two.write(str(chi) + '\n')
+			continue            
+	
+		    qso_files = Qsos.select_chisq(zipchisq, Qsos.del_chisq)
+		    if len(qso_files) == 0:
+			print 'Really bad measurement, THING_ID:', thids
+			flag=0
+
+
+
+Pars    = Ini_params()
 df_fits = read_subset_fits(Pars.dir_fits, Pars.sub_file)
 Qsos    = Qso_catalog(df_fits)
-
-#test for BOSS and eBOSS
-for targ, bits in Qsos.targets.iteritems():
-    print "Quasars with only Bit_condition:Ok in {} =".format(targ), Qsos.searching_quasars(targ, bits).sum()
-
-# filter target qsos with Pars.condition
 Qsos.filtering_qsos(condition= Pars.condition)
-
-# Compute healpix
 unique_pixels = Qsos.adding_pixel_column()
 
-# an example to check whether is working or not
-if False: print Qsos.df_qsos.query('THING_ID == 497865723').head()
+#test
+#print Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771 | THING_ID== 68386221)')
+Qsos.ask_for_files(get_them= False)
 
-# If we don't have the files stored, download them from either bnl or sdss website
-Qsos.ask_for_files()
+if rank == 0:
+    #for targ, bits in Qsos.targets.iteritems():
+    #    print "Quasars in {} =".format(targ), Qsos.searching_quasars(targ, bits).sum()
+    #Qsos.print_file_names()
+
+    lpix = len(unique_pixels)
+    n = int(math.ceil(lpix*1./size))
+    chunks = [unique_pixels[i:i+n] for i in range(0, lpix, n)]
+else:
+    chunks = []
 
 
-# Given a helpix number, find repeated THINGS_ID, and print only those with >= repetitions
-print '\n ** {healpix: {THING_ID: num_reps}}'
-for _, lpix in enumerate(unique_pixels[:100]):
-    thingid_repeat = Qsos.pix_uniqueid(lpix)
-    if not thingid_repeat: continue
-    print {lpix: thingid_repeat}
-    for thids in thingid_repeat:
-        #Get specs (from web or bnl) given a THING_ID
-        qso_files = Qsos.get_files(thing_id= thids)
-        #for names in qso_files: print_qsos.write('v5_10_0/spectra/' + names + '\n')
-        flag = 1
-        while flag:
-            #coadd files and compute chisq
-            dfall_qsos = Qsos.coadds(qso_files, Pars.spec_cols)
-            zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
+chunk_pix = comm.scatter(chunks, root=0)
+split_pixel(chunk_pix, Qsos, rank)
+comm.Barrier()
 
-            #make some plots
-            Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
-            if flag==1: Qsos.plot_chisq_dist(zipchisq)
-
-            #check specs that have chisq > self.del_chisq, if none, get out
-            flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Pars.del_chisq))
-            qso_files = Qsos.select_chisq(zipchisq, Pars.del_chisq)
+print 'stats on Chisq_dist_.csv files' 

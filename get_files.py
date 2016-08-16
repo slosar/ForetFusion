@@ -8,7 +8,7 @@ def read_subset_fits(dir_fits, sub_file):
     """Read the subsample of spAll we are interested in. Return a DataFrame"""
     file_name = '{}{}'.format(dir_fits, sub_file)
     if not os.path.isfile(file_name):
-        sys.exit('File not found: {}'.format(file_name))
+        sys.exit('File amm not found: {}'.format(file_name))
 
     print 'Reading file...'
     df = pd.read_csv(file_name, sep=',')
@@ -19,9 +19,9 @@ def read_subset_fits(dir_fits, sub_file):
 def read_fits(dir_fits, file_name, columns):
     """Read selected columns in the spAll file. Return a DataFrame"""
     file_name = '{}{}.fits'.format(dir_fits, file_name)
-    if not os.path.isfile(file_name):
-        sys.exit('File not found: {}'.format(file_name))
-
+    #if not os.path.isfile(file_name):
+    #    sys.exit('File mmm not found: {}'.format(file_name))
+     
     fits          = fitsio.FITS(file_name)
     fits_columns  = columns
 

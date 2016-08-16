@@ -1,5 +1,5 @@
 
-import pylab
+#import pylab
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
@@ -17,14 +17,14 @@ params1 = {'backend': 'pdf',
                'legend.fontsize': 8,
                'lines.markersize': 16,
                'font.size': 16,}
-pylab.rcParams.update(params1)
+#pylab.rcParams.update(params1)
 
 
 class Ini_params():
     def __init__(self):
 
         self.del_chisq  = 4                              #Thresold to discriminate from coadds
-        self.rep_thid   = 4                              #Times we want a THING_ID repeated
+        self.rep_thid   = 2                             #Times we want a THING_ID repeated
         self.Npix_side  = 2**5                           #Nside to compute healpix
         self.need_files = 'No'                            #Assume we have the files
         self.passwd     = None                           # sdss password
@@ -153,6 +153,7 @@ class Qso_catalog(Ini_params):
         r = br.response()
         data = r.read()
 
+	print ' hi {}{}'.format(self.dir_spec, file_name)
         with open('{}{}'.format(self.dir_spec, file_name),'wb') as output:
               output.write(data)
 
@@ -186,6 +187,7 @@ class Qso_catalog(Ini_params):
         if self.need_files:
             for plate, file in zip(plate_n, qso_files):
                 file = '{}.fits'.format(file)
+		if self.verbose: print file
                 if not os.path.isfile(self.dir_spec + file):
                     if self.passwd is None:
                         self.get_bnl_files(plate, file)
@@ -211,11 +213,13 @@ class Qso_catalog(Ini_params):
     def stack_repeated(self, qso_files, columns):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
-            stack_qsos.append(read_fits(self.dir_spec, fqso, columns).set_index('loglam'))
+            stack_qsos.append(read_fits(self.dir_spec , fqso, columns).set_index('loglam'))
             stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
             stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
-
-        result   = pd.concat([stack_qsos[j][['flux_%s'%(stacks),'ivar_%s'%(stacks)]] for j, stacks in enumerate(qso_files)], axis=1)
+	try:
+            result   = pd.concat([stack_qsos[j][['flux_%s'%(stacks),'ivar_%s'%(stacks)]] for j, stacks in enumerate(qso_files)], axis=1)
+ 	except:
+	    print [(j, stacks) for j, stacks in enumerate(qso_files)]
         return result.fillna(0).copy()
 
 
