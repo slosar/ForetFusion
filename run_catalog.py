@@ -17,7 +17,7 @@ size = comm.Get_size()
 def split_pixel(pixel, Qsos, rank):
     with open('Chisq_dist_{}.csv'.format(rank), 'w') as write_stats, \
     open('Chisq_dist_sec_{}.csv'.format(rank), 'w') as write_stats_two:
-	print 'Number of healpix:', len(pixel)
+    print 'Number of healpix:', len(pixel)
         for i, lpix in enumerate(pixel):
             thingid_repeat = Qsos.pix_uniqueid(lpix)
             if not thingid_repeat: continue
@@ -25,7 +25,7 @@ def split_pixel(pixel, Qsos, rank):
 
             for thids in thingid_repeat:
                 write_stats.flush(), write_stats_two.flush()
-	        qso_files = Qsos.get_files(thing_id= thids)
+                qso_files = Qsos.get_files(thing_id= thids)
 
                 flag = 1
                 while flag:
@@ -36,19 +36,19 @@ def split_pixel(pixel, Qsos, rank):
                     #Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
                     #if flag==1: Qsos.plot_chisq_dist(zipchisq)
 
-                    if flag: 
-			for chi in zipchisq.values(): write_stats.write(str(chi) + '\n')
+                    if flag==1:
+                        for chi in zipchisq.values(): write_stats.write(str(chi) + '\n')
                  
                     #check specs that have chisq > self.del_chisq, if none, get out
                     flag = len(qso_files) - len(Qsos.select_chisq(zipchisq, Qsos.del_chisq))
-                    if not flag:
-			for chi in zipchisq.values(): write_stats_two.write(str(chi) + '\n')
-			continue            
+                    if flag==0:
+                        for chi in zipchisq.values(): write_stats_two.write(str(chi) + '\n')
+                        continue
 	
-		    qso_files = Qsos.select_chisq(zipchisq, Qsos.del_chisq)
-		    if len(qso_files) == 0:
-			print 'Really bad measurement, THING_ID:', thids
-			flag=0
+                    qso_files = Qsos.select_chisq(zipchisq, Qsos.del_chisq)
+                    if len(qso_files) == 0:
+                        print 'Really bad measurement, THING_ID:', thids
+                        flag=0
 
 
 
