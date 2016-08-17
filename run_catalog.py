@@ -17,7 +17,7 @@ size = comm.Get_size()
 def split_pixel(pixel, Qsos, rank):
     with open('Chisq_dist_{}.csv'.format(rank), 'w') as write_stats, \
     open('Chisq_dist_sec_{}.csv'.format(rank), 'w') as write_stats_two:
-    print 'Number of healpix:', len(pixel)
+   	print 'Number of healpix:', len(pixel)
         for i, lpix in enumerate(pixel):
             thingid_repeat = Qsos.pix_uniqueid(lpix)
             if not thingid_repeat: continue
