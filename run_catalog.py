@@ -51,6 +51,7 @@ chunk_pix  = comm.scatter(chunks, root=0)
 split_pixel(chunk_pix, Qsos)
 comm.Barrier()
 
-Qsos.write_stats_close()
-Qsos.plot_stats(size)
-print ('-- stats are on Chisq_dist.csv files')
+if rank == 0:
+    Qsos.write_stats_close()
+    Qsos.plot_stats(size)
+    print ('-- stats are on Chisq_dist.csv files')

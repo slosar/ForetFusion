@@ -58,6 +58,8 @@ class Ini_params():
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
 
+	self.use_bokeh   = False
+
     def do_nothing(self):
         pass
 
@@ -403,7 +405,8 @@ class Qso_catalog(Ini_params):
         bins  = 80
         range = (0,6)
 
-        try:
+	if self.use_bokeh:	
+           try:
             from bokeh.plotting import figure, show
 
             TOOLS="pan,box_zoom,reset,tap,save,crosshair"
@@ -420,10 +423,12 @@ class Qso_catalog(Ini_params):
 
             p1.xaxis.axis_label = 'Chisq'
             p1.yaxis.axis_label = '#'
+	    output_file('histogram.html', title="histogram.py example")
             show(p1)
 
-        except:
-            print ('Install Bokeh for fun')
+           except:
+	    print ('Install Bokeh for fun')
+        else:   
             plt.figure()
             ax = plt.subplot(111)
             df['chisq'].plot.hist(bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
@@ -435,7 +440,6 @@ class Qso_catalog(Ini_params):
 
             print (df['chisq'].describe())
             print (df_sec['chisq'].describe())
-
             plt.show(block=True)
 
 
