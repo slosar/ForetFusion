@@ -4,13 +4,13 @@ import fitsio
 import pandas as pd
 
 
-def read_subset_fits(dir_fits, sub_file):
+def read_sub_fits(dir_fits, sub_file):
     """Read the subsample of spAll we are interested in. Return a DataFrame"""
     file_name = '{}{}'.format(dir_fits, sub_file)
     if not os.path.isfile(file_name):
         sys.exit('File amm not found: {}'.format(file_name))
 
-    print 'Reading file...'
+    print ('Reading file...')
     df = pd.read_csv(file_name, sep=',')
     return df
 

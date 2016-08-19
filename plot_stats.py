@@ -1,7 +1,6 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib
 pd.set_option('display.mpl_style', 'default')
 #matplotlib.style.use('ggplot')
 
@@ -29,7 +28,7 @@ plt.ylabel('#')
 plt.xlabel('chisq')
 plt.legend(loc = 'best')
 
-print df['chisq'].describe()
-print df_sec['chisq'].describe()
+print (df['chisq'].describe())
+print (df_sec['chisq'].describe())
 
 plt.show(block=True)
