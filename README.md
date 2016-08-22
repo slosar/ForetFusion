@@ -52,7 +52,7 @@ Python libraries you may need: fitsio, pandas, mpi4py, healpy. I am using Python
 * Once filtered and selected the Qsos, it computes the healpix given RA and DEC, and group quasar observations by healpix.
 i.e. 
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_3.jpg =1000x)
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_3.jpg )
 
 
 * Withing a healpix, finds the repeated objects with the same THING_ID (can be changed in **self.rep_thid = 4**), Coadd them (average ivar*flux.) and compute the chisq:
@@ -60,12 +60,12 @@ i.e.
 N.B. In case you don't have the spec files, there are two options, (bnl): get them from the bnl cluster or (sdss): directly from the sdss website (although is password protected), by modifying **get_files= True**
 i.e. 
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_1.jpg =1000x)
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_1.jpg)
 
 * Loop over:  If the chisq is more than 4 (or change this number in **self.trim_chisq = 4**), eliminate that spec,
     coadd again and get new chisq
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_2.jpg =1000x)
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_2.jpg)
 
 
 * Write a file for each healpix that contains THING_ID's and for each one the coadd 'flux','loglam':
@@ -81,7 +81,7 @@ those with chisq >= 4.
 
 The plot below shows the distribution of chisq considering only the quasars with repeated THING_ID, in this case for testing, with more than 4 times.
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/chisq_4.jpg =600x)
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/chisq_4.jpg )
 
 
 
