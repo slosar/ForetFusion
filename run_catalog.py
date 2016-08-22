@@ -5,7 +5,6 @@
 
 import math
 from qso_catalog import Qso_catalog
-from mpi4py import MPI
 from main_file import split_pixel
 from get_files import *
 
@@ -26,7 +25,7 @@ Qsos.show_plots  = False
 Qsos.write_names = False
 Qsos.write_stats = True
 
-#add own condition
+#add your own condition
 # Qsos.filtering_qsos(condition=new_condition)
 Qsos.filtering_qsos(condition= Qsos.condition)
 unique_pixels = Qsos.adding_pixel_column()
@@ -44,14 +43,14 @@ if rank == 0:
 else:
     chunks = []
 
-
 Qsos.write_stats_open(rank)
 
 chunk_pix  = comm.scatter(chunks, root=0)
 split_pixel(chunk_pix, Qsos)
 comm.Barrier()
 
+Qsos.write_stats_close()
+
 if rank == 0:
-    Qsos.write_stats_close()
     Qsos.plot_stats(size)
     print ('-- stats are on Chisq_dist.csv files')

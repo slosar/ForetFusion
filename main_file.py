@@ -15,7 +15,7 @@ that satisfy the bit condition and also
 """
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:10]):
+    for i, lpix in enumerate(pixel[:15]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print (i, {lpix: thingid_repeat})
@@ -23,27 +23,31 @@ def split_pixel(pixel, Qsos):
         for thids in thingid_repeat:
             qso_files = Qsos.get_files(thing_id = thids)
 
-            flag = 1
+            flag = 99
             while flag:
                 dfall_qsos = Qsos.coadds(qso_files)
                 zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
-                if Qsos.write_stats and flag == 1:
+                #write stats files
+                if Qsos.write_stats and flag == 99:
                     Qsos.write_stats_file(zipchisq, 'all')
-                    Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
 
+
+                #show some plots
                 if Qsos.show_plots:
                     Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
-                    if flag == 1: Qsos.plot_chisq_dist(zipchisq)
+                    if flag == 99: Qsos.plot_chisq_dist(zipchisq)
 
 
                 #check specs that have chisq > self.trim_chisq, if none, get out
                 flag = len(qso_files) - len(Qsos.ftrim_chisq(zipchisq))
-                if flag == 0:
-                    if Qsos.write_stats: Qsos.write_stats_file(zipchisq, 'trim')
+
+                if Qsos.write_stats and flag == 0:
+                    Qsos.write_stats_file(zipchisq, 'trim')
+                    Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
                     continue
 
                 qso_files = Qsos.ftrim_chisq(zipchisq)
                 if len(qso_files) == 0:
-                    flag=0
+                    flag = 0
                     print ('Really bad measurement, THING_ID:', thids)

@@ -36,6 +36,7 @@ class Ini_params():
         self.write_stats = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False
+        self.use_bokeh   = True                           #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
         self.full_file   = 'spAll-v5_10_0.fits'
@@ -57,8 +58,6 @@ class Ini_params():
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
-
-	self.use_bokeh   = False
 
     def do_nothing(self):
         pass
@@ -121,6 +120,7 @@ class Qso_catalog(Ini_params):
         if self.verbose:                            #with Both conditions
             self.print_filter_qsos(self.df_qsos, 'Both')
         return 0
+
 
 
     def own_filter(self, condition):
@@ -188,11 +188,8 @@ class Qso_catalog(Ini_params):
         # you may not have to.
         b64login = b64encode('%s:%s' % (username, password))
 
-        try:
-            import mechanize
-            br = mechanize.Browser()
-        except:
-            sys.exit("Install mechanize to get files")
+
+        br = mechanize.Browser()
         br.set_handle_robots(False)
 
         br.addheaders.append(
@@ -221,6 +218,11 @@ class Qso_catalog(Ini_params):
             self.passwd     = input('sdss passwd:') if self.need_files == 'sdss' else None
             if not ('{0} == bnl | {0} == sdss'.format(self.need_files)):
                 sys.exit('** Need to type either bnl or sdss')
+            if self.need_files == 'sdss':
+                try:
+                    import mechanize
+                except:
+                    sys.exit("Install mechanize to get files")
         return 0
 
 
@@ -332,7 +334,7 @@ class Qso_catalog(Ini_params):
                 del tmp_zipchisq[files]
             else: continue
 
-        return tmp_zipchisq.keys()
+        return list(tmp_zipchisq)
 
 
 
@@ -385,14 +387,16 @@ class Qso_catalog(Ini_params):
             self.write_stats[i].close()
 
 
-    def write_stats_file(self, zipchisq, i):
+    def write_stats_file(self, zipchisq, name):
         for chi in zipchisq.values():
-            self.write_stats[i].write(str(chi) + '\n')
+            self.write_stats[name].write(str(chi) + '\n')
 
 
 
     def plot_stats(self, size):
-        total_chisq = total_chisq_sec = []
+        """At the end, collect all chisq and plot a histogram"""
+        total_chisq = []
+        total_chisq_sec = []
         for i in np.arange(size):
             Chisq     = pd.read_csv(self.stats_file + '_{}.csv'.format(i))
             Chisq_sec = pd.read_csv(self.stats_file2 + '_{}.csv'.format(i))
@@ -402,33 +406,36 @@ class Qso_catalog(Ini_params):
         df     = pd.DataFrame(total_chisq, columns=['chisq'])
         df_sec = pd.DataFrame(total_chisq_sec, columns=['chisq'])
 
+        print (df['chisq'].describe(), df_sec['chisq'].describe())
+
         bins  = 80
         range = (0,6)
 
-	if self.use_bokeh:	
-           try:
-            from bokeh.plotting import figure, show
+        if self.use_bokeh:
+            try:
+                from bokeh.plotting import figure, show
 
-            TOOLS="pan,box_zoom,reset,tap,save,crosshair"
-            p1 = figure(title="Counting chisq for repeated THING_ID",tools=TOOLS)
+                TOOLS = "pan,box_zoom,reset,tap,save,crosshair"
+                p1 = figure(title="Counting chisq for repeated THING_ID", tools=TOOLS)
 
-            hist, edges = np.histogram(df['chisq'], density=False, bins=bins, range=range)
-            hist2, edges2 = np.histogram(df_sec['chisq'], density=False, bins=bins,  range=range)
+                hist, edges = np.histogram(df['chisq'], density=False, bins=bins, range=range)
+                hist2, edges2 = np.histogram(df_sec['chisq'], density=False, bins=bins, range=range)
 
-            p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
-                    fill_color="blue", line_color="#FF7373", legend="Chisq-all")
+                p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
+                        fill_color="blue", line_color="#FF7373", legend="Chisq-all: %s"%(len(df)))
 
-            p1.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
-                    fill_color="red", line_color="#92D7FF", legend="Chisq<4")
+                p1.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
+                        fill_color="red", line_color="#92D7FF", legend="Chisq < 4: %s"%(len(df_sec)))
 
-            p1.xaxis.axis_label = 'Chisq'
-            p1.yaxis.axis_label = '#'
-	    output_file('histogram.html', title="histogram.py example")
-            show(p1)
+                p1.xaxis.axis_label = 'Chisq'
+                p1.yaxis.axis_label = '#'
+                #output_file('histogram.html', title="histogram.py example")
 
-           except:
-	    print ('Install Bokeh for fun')
-        else:   
+                show(p1)
+
+            except:
+                print ('Install Bokeh for fun')
+        else:
             plt.figure()
             ax = plt.subplot(111)
             df['chisq'].plot.hist(bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
@@ -438,8 +445,6 @@ class Qso_catalog(Ini_params):
             plt.xlabel('chisq')
             plt.legend(loc = 'best')
 
-            print (df['chisq'].describe())
-            print (df_sec['chisq'].describe())
             plt.show(block=True)
 
 
