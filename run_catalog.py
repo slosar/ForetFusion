@@ -23,7 +23,7 @@ Qsos    = Qso_catalog(df_fits)
 Qsos.verbose     = True
 Qsos.show_plots  = False
 Qsos.write_names = False
-Qsos.write_stats = True
+Qsos.write_stats = False
 
 #add your own condition
 # Qsos.filtering_qsos(condition=new_condition)

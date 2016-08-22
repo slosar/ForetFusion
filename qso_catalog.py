@@ -2,7 +2,6 @@
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
-from base64 import b64encode
 from get_files import *
 from functools import reduce
 
@@ -36,7 +35,7 @@ class Ini_params():
         self.write_stats = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False
-        self.use_bokeh   = True                           #Playing with interactive plots
+        self.use_bokeh   = False                          #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
         self.full_file   = 'spAll-v5_10_0.fits'
@@ -221,6 +220,7 @@ class Qso_catalog(Ini_params):
             if self.need_files == 'sdss':
                 try:
                     import mechanize
+                    from base64 import b64encode
                 except:
                     sys.exit("Install mechanize to get files")
         return 0
