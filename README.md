@@ -84,4 +84,6 @@ The plot below shows the distribution of chisq considering only the quasars with
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/chisq_4.jpg )
 
 
+* Last, there are some very bad observations where most of the specs have a chisq>4 compared to the coadd
 
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/THING_ID_4.jpg )
