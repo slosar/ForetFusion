@@ -81,9 +81,9 @@ those with chisq >= 4.
 
 The plot below shows the distribution of chisq considering only the quasars with repeated THING_ID, in this case for testing, with more than 4 times.
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/fits/chisq_4.jpg )
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/chisq_4.jpg )
 
 
 * Last, there are some very bad observations where most of the specs have a chisq>4 compared to the coadd (and I'm not so sure what to do in these cases)
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/fits/THING_ID_4.jpg )
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg )
