@@ -13,13 +13,15 @@ that satisfy the bit condition and also
     coadd again and get new chisq
 
 """
+import pandas as pd
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:2]):
+    for i, lpix in enumerate(pixel[:1]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print (i, {lpix: thingid_repeat})
 
+        result= []
         for thids in thingid_repeat:
             qso_files = Qsos.get_files(thing_id = thids)
 
@@ -28,28 +30,27 @@ def split_pixel(pixel, Qsos):
                 dfall_qsos = Qsos.coadds(qso_files)
                 zipchisq   = Qsos.calc_chisq(qso_files, dfall_qsos)
 
-                #write stats files
-                if Qsos.write_stats and flag == 99:
-                    Qsos.write_stats_file(zipchisq, 'all')
+                #write stats files and show some plots
+                if flag == 99:
+                    if Qsos.write_hist: Qsos.write_stats_file(zipchisq, 'all')
+                    if Qsos.show_plots: Qsos.plot_chisq_dist(zipchisq)
+                if Qsos.show_plots: Qsos.plot_coadds(dfall_qsos, zipchisq)
 
 
-                #show some plots
-                if Qsos.show_plots:
-                    Qsos.plot_coadds(dfall_qsos, thids, zipchisq)
-                    if flag == 99: Qsos.plot_chisq_dist(zipchisq)
-
-
-                #check specs that have chisq > self.trim_chisq, if none, get out
+                #check specs that have chisq < self.trim_chisq, if none, get out
                 flag = len(qso_files) - len(Qsos.ftrim_chisq(zipchisq))
 
-                if flag == 0 and Qsos.write_stats:
-                    Qsos.write_stats_file(zipchisq, 'trim')
-                    Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
-                    print (dfall_coadds['coadd'].head())
+                if flag == 0:
+                    result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id]])
+                    if Qsos.write_hist:
+                        Qsos.write_stats_file(zipchisq, 'trim')
+                        Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
                     continue
+
 
                 qso_files = Qsos.ftrim_chisq(zipchisq)
                 if len(qso_files) == 0:
                     flag = 0
-                    Qsos.write_stats['bad'].write(str(thids) + '\n')
-                    print ('Really bad measurement, THING_ID:', thids)
+                    Qsos.write_stats['bad'].write(str(Qsos.thids) + '\n')
+                    print ('Really bad measurement, THING_ID:', Qsos.thids)
+        print (pd.concat([r for r in result], axis=1).fillna(0).head(20))

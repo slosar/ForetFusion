@@ -28,7 +28,7 @@ class Ini_params():
 
         self.passwd      = None                           # sdss password
         self.verbose     = False
-        self.write_stats = False                          #Write chisq distribution files
+        self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False
         self.use_bokeh   = False                           #Playing with interactive plots
@@ -52,7 +52,7 @@ class Ini_params():
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
         self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1',
-                           'EBOSS_TARGET0','EBOSS_TARGET1']
+                            'EBOSS_TARGET0','EBOSS_TARGET1']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
@@ -241,6 +241,8 @@ class Qso_catalog(Ini_params):
         """Given a THING_ID locate names of the files,
             if we dont have the files, get them."""
 
+        self.thids = thing_id
+
         plates   = self.get_names(thing_id, 'PLATE')
         mjds     = self.get_names(thing_id, 'MJD')
         fiberids = self.get_names(thing_id, 'FIBERID')
@@ -285,9 +287,7 @@ class Qso_catalog(Ini_params):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
             stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
-        #Jav use rename instead
-            stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
-            stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
+            stack_qsos[i].rename(columns={'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso)}, inplace=True)
 
         result   = pd.concat([stack_qsos[j][['flux_%s'%(stacks),'ivar_%s'%(stacks)]] for j, stacks in enumerate(qso_files)], axis=1)
         return result.fillna(0).copy()
@@ -299,16 +299,20 @@ class Qso_catalog(Ini_params):
     def coadds(self, qso_files):
         """ Add coadd column """
 
-        dfall_coadds = self.stack_repeated(qso_files)
+        self.coadd_id     = 'coadd_%s'%(self.thids)
+        self.ivar_id      = 'ivar_%s'%(self.thids)
+        self.flux_ivar_id = 'flux_ivar_%s'%(self.thids)
 
-        dfall_coadds['sum_flux_ivar'] = 0
-        dfall_coadds['sum_ivar'] = 0
+        dfall_coadds  = self.stack_repeated(qso_files)
+
+        dfall_coadds[self.flux_ivar_id] = 0
+        dfall_coadds[self.ivar_id] = 0
 
         for _, fqso in enumerate(qso_files):
-            dfall_coadds['sum_flux_ivar'] += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
-            dfall_coadds['sum_ivar']      += dfall_coadds['ivar_%s'%(fqso)]
+            dfall_coadds[self.flux_ivar_id] += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
+            dfall_coadds[self.ivar_id]      += dfall_coadds['ivar_%s'%(fqso)]
 
-        dfall_coadds['coadd'] = dfall_coadds['sum_flux_ivar']/dfall_coadds['sum_ivar']
+        dfall_coadds[self.coadd_id] = dfall_coadds[self.flux_ivar_id]/dfall_coadds[self.ivar_id]
 
         dfall_coadds = dfall_coadds.fillna(0).copy()
         return dfall_coadds
@@ -318,7 +322,7 @@ class Qso_catalog(Ini_params):
 
     def comp_chisq(self, fqso, dfall_coadds):
         """chisq with respect to zero flux """
-        tmp = (0.0*dfall_coadds['coadd'].values - dfall_coadds['flux_%s'%(fqso)].values)**2
+        tmp = (0.0*dfall_coadds[self.coadd_id].values - dfall_coadds['flux_%s'%(fqso)].values)**2
         return np.sum(tmp*dfall_coadds['ivar_%s'%(fqso)].values)
 
 
@@ -351,7 +355,7 @@ class Qso_catalog(Ini_params):
 
 
 
-    def plot_coadds(self, dfall_coadds, thingid, zipchisq):
+    def plot_coadds(self, dfall_coadds, zipchisq):
         """Plot the spectra and coadds"""
 
         plt.figure(figsize = (18, 8))
@@ -364,9 +368,9 @@ class Qso_catalog(Ini_params):
         plt.legend(loc='best')
 
         ax2 = plt.subplot(1, 2, 2)
-        dfall_coadds['coadd'].plot(label='coad', xlim=xlimits, ylim=ylimits, ax=ax2)
+        dfall_coadds[self.coadd_id].plot(label=self.coadd_id, xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
-        plt.title('THING_ID: %s'%(thingid))
+        plt.title('THING_ID: %s'%(self.thids))
         plt.show(block=True)
         return 0
 

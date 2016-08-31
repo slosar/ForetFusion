@@ -3,6 +3,7 @@
  using mpi4py
 
 ** TODO:
+    - use np.where
     - self.THING_ID, flux, ivar
     - add comments, and del sdss_catalog
     - README has some typos, and difficult to read
@@ -30,7 +31,7 @@ Qsos    = Qso_catalog(df_fits)
 Qsos.verbose     = False
 Qsos.show_plots  = False
 Qsos.write_names = False
-Qsos.write_stats = True
+Qsos.write_hist  = False
 
 
 # Qsos.my_own_filter(condition=my_condition)
@@ -58,6 +59,6 @@ comm.Barrier()
 
 Qsos.write_stats_close()
 
-if rank == 0:
+if rank == 0 and Qsos.write_hist:
     Qsos.plot_stats(size)
     print ('-- stats are on Chisq_dist.csv files')
