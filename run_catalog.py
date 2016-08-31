@@ -3,12 +3,9 @@
  using mpi4py
 
 ** TODO:
-    - use np.where
     - self.THING_ID, flux, ivar
     - add comments, and del sdss_catalog
     - README has some typos, and difficult to read
-    - using rank==0 to compute Qsos, and then broadcast to
-        all the nodes.
 """
 
 
