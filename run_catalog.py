@@ -1,7 +1,15 @@
 
 """
  using mpi4py
+
+** TODO:
+    - self.THING_ID, flux, ivar
+    - add comments, and del sdss_catalog
+    - README has some typos, and difficult to read
+    - using rank==0 to compute Qsos, and then broadcast to
+        all the nodes.
 """
+
 
 import math
 from qso_catalog import Qso_catalog
@@ -16,22 +24,21 @@ size = comm.Get_size()
 dir_files = 'data/'
 file_name = 'subset_spAll-v5_10_0.csv'
 
-
 df_fits = read_sub_fits(dir_files, file_name)
 Qsos    = Qso_catalog(df_fits)
 
-Qsos.verbose     = True
+Qsos.verbose     = False
 Qsos.show_plots  = False
 Qsos.write_names = False
-Qsos.write_stats = False
+Qsos.write_stats = True
 
-#add your own condition
-# Qsos.filtering_qsos(condition=new_condition)
+
+# Qsos.my_own_filter(condition=my_condition)
 Qsos.filtering_qsos(condition= Qsos.condition)
 unique_pixels = Qsos.adding_pixel_column()
 Qsos.ask_for_files(get_files= False)
 
-#test
+
 #print (Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771 | THING_ID== 68386221)'))
 
 if rank == 0:

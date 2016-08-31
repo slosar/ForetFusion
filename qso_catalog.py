@@ -5,10 +5,6 @@ import matplotlib.pyplot as plt
 from get_files import *
 from functools import reduce
 
-#uncomment if you need to get files from the web
-
-
-
 pd.set_option('display.mpl_style', 'default')
 
 params1 = {'backend': 'pdf',
@@ -26,7 +22,7 @@ params1 = {'backend': 'pdf',
 class Ini_params():
     def __init__(self):
 
-        self.trim_chisq  = 4                              #Thresold to discriminate from coadds
+        self.trim_chisq  = 2                              #Thresold to discriminate from coadds
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
         self.Npix_side   = 2**5                           #Nside to compute healpix
 
@@ -35,13 +31,16 @@ class Ini_params():
         self.write_stats = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False
-        self.use_bokeh   = False                          #Playing with interactive plots
+        self.use_bokeh   = False                           #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
         self.full_file   = 'spAll-v5_10_0.fits'
+        self.Spall_files = 'SpAll_files.csv'
+        self.dir_v5_10   = 'v5_10_0/spectra/'
 
         self.stats_file  = 'Chisq_dist_all'
         self.stats_file2 = 'Chisq_dist_trim'
+        self.stats_file3 = 'Chisq_bad'
 
         self.bit_boss    = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
         self.bit_eboss   = [10,11,12,13,14,15,16,17,18]
@@ -57,6 +56,8 @@ class Ini_params():
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
+        self.sdss_url    = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/'
+        self.bnl_dir     = 'astro:/data/boss/v5_10_0/spectra/'
 
     def do_nothing(self):
         pass
@@ -101,30 +102,29 @@ class Qso_catalog(Ini_params):
     def filtering_qsos(self, condition):
         """Filter quasars within the dataFrame"""
 
-        if self.verbose:                           #with bit condition
-            self.print_filter_qsos(self.df_fits, 'Bit')
+        if self.verbose: self.print_filter_qsos(self.df_fits, 'Bit')
 
         # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
         self.df_fits  = self.df_fits.query(condition)
 
-        if self.verbose:                            #with general condition
-            self.print_filter_qsos(self.df_fits, 'General')
+        if self.verbose: self.print_filter_qsos(self.df_fits, 'General')
 
-        # and satisfy the bit condition
+        # and satisfy the bit condition (is a quasar)
         a =[]
         for targ, bits in self.targets.items():
             a.append(self.searching_quasars(targ, bits))
         self.df_qsos = self.df_fits[reduce(lambda x, y: x | y, a)].copy()
 
-        if self.verbose:                            #with Both conditions
-            self.print_filter_qsos(self.df_qsos, 'Both')
+        if self.verbose: self.print_filter_qsos(self.df_qsos, 'Both')
         return 0
 
 
 
-    def own_filter(self, condition):
+
+    def my_own_filter(self, condition):
         """Add your own filter condition"""
         self.df_qsos = self.df_fits.query(condition).copy()
+
 
 
 
@@ -165,10 +165,12 @@ class Qso_catalog(Ini_params):
     def get_bnl_files(self, plate, file_name):
         """nasty hack to get bnl-files, but will change it later"""
 
+        bnl_folder = os.path.join(self.dir_spec, plate)
+
         if self.verbose: print ('Getting file {} from the bnl'.format(file_name))
-        if not os.path.isdir('{}{}'.format(self.dir_spec, plate)):
-            os.system('mkdir {}{}'.format(self.dir_spec, plate))
-        os.system('scp astro:/data/boss/v5_10_0/spectra/{1} {2}{0}'.format(plate, file_name, self.dir_spec))
+        if not os.path.isdir(bnl_folder):
+            os.system('mkdir {}'.format(bnl_folder))
+        os.system('scp {0} {1}'.format(os.path.join(self.bnl_dir, file_name), bnl_folder))
         return 0
 
 
@@ -179,14 +181,13 @@ class Qso_catalog(Ini_params):
         """nasty hack to get files from sdss website, but will change it later"""
 
         if self.verbose: print ('Getting file {} from the sdss web'.format(file_name))
-        url = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/{}'.format(file_name)
+        url = os.path.join(self.sdss_url, file_name)
         username = 'sdss'
         password = '{}'.format(passwd)
 
         # I have had to add a carriage return ('%s:%s\n'), but
         # you may not have to.
         b64login = b64encode('%s:%s' % (username, password))
-
 
         br = mechanize.Browser()
         br.set_handle_robots(False)
@@ -198,7 +199,7 @@ class Qso_catalog(Ini_params):
         r = br.response()
         data = r.read()
 
-        with open('{}{}'.format(self.dir_spec, file_name),'wb') as output:
+        with open(os.path.join(self.dir_spec, file_name),'wb') as output:
               output.write(data)
 
         return 0
@@ -264,15 +265,14 @@ class Qso_catalog(Ini_params):
         """ Write a file that contains all names.fits for filtered quasars,
         so we can get them from NERSC """
 
-        nfile = 'SpAll_files.csv'
-        print ('printing names in {}'.format(nfile))
-        self.df_qsos['file_name'] =  'v5_10_0/spectra/' + self.df_qsos['PLATE'].astype(str) + '/spec-' + \
+        print ('printing names in {}'.format(self.Spall_files))
+        self.df_qsos['file_name'] =  self.dir_v5_10 + self.df_qsos['PLATE'].astype(str) + '/spec-' + \
                 self.df_qsos['PLATE'].astype(str) + '-' + self.df_qsos['MJD'].astype(str)+ '-' + \
                 self.df_qsos['FIBERID'].astype(str).str.zfill(4)
 
-        with open(nfile, 'w') as f:
+        with open(self.Spall_files, 'w') as f:
              for name in self.df_qsos['file_name'].values:
-                 f.write(name + '\n')
+                 f.write(name + '.fits' + '\n')
         return 0
 
 
@@ -285,6 +285,7 @@ class Qso_catalog(Ini_params):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
             stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
+        #Jav use rename instead
             stack_qsos[i]['flux_%s'%(fqso)] = stack_qsos[i]['flux']
             stack_qsos[i]['ivar_%s'%(fqso)] = stack_qsos[i]['ivar']
 
@@ -299,7 +300,9 @@ class Qso_catalog(Ini_params):
         """ Add coadd column """
 
         dfall_coadds = self.stack_repeated(qso_files)
-        dfall_coadds['sum_flux_ivar'] = dfall_coadds['sum_ivar'] = 0
+
+        dfall_coadds['sum_flux_ivar'] = 0
+        dfall_coadds['sum_ivar'] = 0
 
         for _, fqso in enumerate(qso_files):
             dfall_coadds['sum_flux_ivar'] += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
@@ -313,13 +316,22 @@ class Qso_catalog(Ini_params):
 
 
 
+    def comp_chisq(self, fqso, dfall_coadds):
+        """chisq with respect to zero flux """
+        tmp = (0.0*dfall_coadds['coadd'].values - dfall_coadds['flux_%s'%(fqso)].values)**2
+        return np.sum(tmp*dfall_coadds['ivar_%s'%(fqso)].values)
+
+
+
+
     def calc_chisq(self, qso_files, dfall_coadds):
         """Compute chisq and return a dict with files'name and chisq"""
 
         chi_sq_all =[]
         for _, fqso in enumerate(qso_files):
-            chis_sq = np.sum((dfall_coadds['coadd'].values - dfall_coadds['flux_%s'%(fqso)].values)**2*dfall_coadds['ivar_%s'%(fqso)].values)
+            chis_sq = self.comp_chisq(fqso, dfall_coadds)
             chi_sq_all.append(chis_sq/len(dfall_coadds.values))
+                #careful: len(dfall_coadds.values) != len(individuals)
         return dict(zip(qso_files, chi_sq_all))
 
 
@@ -330,11 +342,12 @@ class Qso_catalog(Ini_params):
 
         tmp_zipchisq = zipchisq.copy()
         for files, chisq in zipchisq.items():
-            if chisq > self.trim_chisq:
+            if chisq < self.trim_chisq:
                 del tmp_zipchisq[files]
             else: continue
 
         return list(tmp_zipchisq)
+
 
 
 
@@ -379,11 +392,12 @@ class Qso_catalog(Ini_params):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
 
         self.write_stats = {'all' : open(self.stats_file + '_{}.csv'.format(rank), 'w'),
-                            'trim': open(self.stats_file2 + '_{}.csv'.format(rank), 'w')}
+                            'trim': open(self.stats_file2 + '_{}.csv'.format(rank), 'w'),
+                            'bad' : open(self.stats_file3 + '_{}.csv'.format(rank), 'w')}
 
 
     def write_stats_close(self):
-        for i in ['all','trim']:
+        for i in ['all','trim', 'bad']:
             self.write_stats[i].close()
 
 
@@ -403,13 +417,14 @@ class Qso_catalog(Ini_params):
             total_chisq.extend(Chisq.values.flatten())
             total_chisq_sec.extend(Chisq_sec.values.flatten())
 
-        df     = pd.DataFrame(total_chisq, columns=['chisq'])
-        df_sec = pd.DataFrame(total_chisq_sec, columns=['chisq'])
+        chisq_ = 'chisq'
+        df     = pd.DataFrame(total_chisq,     columns=[chisq_])
+        df_sec = pd.DataFrame(total_chisq_sec, columns=[chisq_])
 
-        print (df['chisq'].describe(), df_sec['chisq'].describe())
+        print (df[chisq_].describe(), df_sec[chisq_].describe())
 
         bins  = 80
-        range = (0,6)
+        range = (0,20)
 
         if self.use_bokeh:
             try:
@@ -418,31 +433,29 @@ class Qso_catalog(Ini_params):
                 TOOLS = "pan,box_zoom,reset,tap,save,crosshair"
                 p1 = figure(title="Counting chisq for repeated THING_ID", tools=TOOLS)
 
-                hist, edges = np.histogram(df['chisq'], density=False, bins=bins, range=range)
-                hist2, edges2 = np.histogram(df_sec['chisq'], density=False, bins=bins, range=range)
+                hist, edges = np.histogram(df[chisq_], density=False, bins=bins, range=range)
+                hist2, edges2 = np.histogram(df_sec[chisq_], density=False, bins=bins, range=range)
 
                 p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
                         fill_color="blue", line_color="#FF7373", legend="Chisq-all: %s"%(len(df)))
 
                 p1.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
-                        fill_color="red", line_color="#92D7FF", legend="Chisq < 4: %s"%(len(df_sec)))
+                        fill_color="red", line_color="#92D7FF", legend="Chisq > 2: %s"%(len(df_sec)))
 
                 p1.xaxis.axis_label = 'Chisq'
                 p1.yaxis.axis_label = '#'
                 #output_file('histogram.html', title="histogram.py example")
-
                 show(p1)
-
             except:
                 print ('Install Bokeh for fun')
         else:
             plt.figure()
             ax = plt.subplot(111)
-            df['chisq'].plot.hist(bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
-            df_sec['chisq'].plot.hist(bins=bins, range=range, alpha=0.5, ax=ax, color='b', label='After loop, %s'%(len(df_sec)))
+            df[chisq_].plot.hist(    bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
+            df_sec[chisq_].plot.hist(bins=bins, range=range, alpha=0.5, ax=ax, color='b', label='After loop, %s'%(len(df_sec)))
 
             plt.ylabel('#')
-            plt.xlabel('chisq')
+            plt.xlabel(chisq_)
             plt.legend(loc = 'best')
 
             plt.show(block=True)

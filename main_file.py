@@ -15,7 +15,7 @@ that satisfy the bit condition and also
 """
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:15]):
+    for i, lpix in enumerate(pixel[:2]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print (i, {lpix: thingid_repeat})
@@ -42,12 +42,14 @@ def split_pixel(pixel, Qsos):
                 #check specs that have chisq > self.trim_chisq, if none, get out
                 flag = len(qso_files) - len(Qsos.ftrim_chisq(zipchisq))
 
-                if Qsos.write_stats and flag == 0:
+                if flag == 0 and Qsos.write_stats:
                     Qsos.write_stats_file(zipchisq, 'trim')
                     Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
+                    print (dfall_coadds['coadd'].head())
                     continue
 
                 qso_files = Qsos.ftrim_chisq(zipchisq)
                 if len(qso_files) == 0:
                     flag = 0
+                    Qsos.write_stats['bad'].write(str(thids) + '\n')
                     print ('Really bad measurement, THING_ID:', thids)
