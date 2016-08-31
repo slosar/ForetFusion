@@ -4,6 +4,7 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from get_files import *
 from functools import reduce
+import fitsio
 
 pd.set_option('display.mpl_style', 'default')
 
@@ -34,13 +35,16 @@ class Ini_params():
         self.use_bokeh   = False                           #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
+        self.dir_v5_10   = 'v5_10_0/spectra/'
+        self.pix_dir     = 'healpix/'
+
         self.full_file   = 'spAll-v5_10_0.fits'
         self.Spall_files = 'SpAll_files.csv'
-        self.dir_v5_10   = 'v5_10_0/spectra/'
 
         self.stats_file  = 'Chisq_dist_all'
         self.stats_file2 = 'Chisq_dist_trim'
         self.stats_file3 = 'Chisq_bad'
+        self.suffix      = '_{}.csv'
 
         self.bit_boss    = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
         self.bit_eboss   = [10,11,12,13,14,15,16,17,18]
@@ -58,6 +62,7 @@ class Ini_params():
 
         self.sdss_url    = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/'
         self.bnl_dir     = 'astro:/data/boss/v5_10_0/spectra/'
+
 
     def do_nothing(self):
         pass
@@ -213,9 +218,11 @@ class Qso_catalog(Ini_params):
             or sdss website"""
 
         self.need_files= get_files
+
         if get_files:
             self.need_files = input('Get files from (bnl), (sdss): ')
             self.passwd     = input('sdss passwd:') if self.need_files == 'sdss' else None
+
             if not ('{0} == bnl | {0} == sdss'.format(self.need_files)):
                 sys.exit('** Need to type either bnl or sdss')
             if self.need_files == 'sdss':
@@ -230,10 +237,9 @@ class Qso_catalog(Ini_params):
 
 
 
-    def get_names(self, thing_id, name):
+    def get_names(self, name):
         """ Useful to get values given a THING_ID """
-        return list(self.df_qsos.query('THING_ID == %s'%(thing_id))[name].values)
-
+        return list(self.df_qsos.query('THING_ID == %s'%(self.th_id))[name].values)
 
 
 
@@ -241,11 +247,14 @@ class Qso_catalog(Ini_params):
         """Given a THING_ID locate names of the files,
             if we dont have the files, get them."""
 
-        self.thids = thing_id
+        self.th_id        = thing_id
+        self.coadd_id     = 'coadd_%s'%(self.th_id)
+        self.ivar_id      = 'ivar_%s'%(self.th_id)
+        self.flux_ivar_id = 'flux_ivar_%s'%(self.th_id)
 
-        plates   = self.get_names(thing_id, 'PLATE')
-        mjds     = self.get_names(thing_id, 'MJD')
-        fiberids = self.get_names(thing_id, 'FIBERID')
+        plates   = self.get_names('PLATE')
+        mjds     = self.get_names('MJD')
+        fiberids = self.get_names('FIBERID')
         plate_n  = ['{}'.format(plate) for plate in plates]
 
         qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
@@ -287,9 +296,9 @@ class Qso_catalog(Ini_params):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
             stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
-            stack_qsos[i].rename(columns={'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso)}, inplace=True)
+            stack_qsos[i].rename(columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso)}, inplace=True)
 
-        result   = pd.concat([stack_qsos[j][['flux_%s'%(stacks),'ivar_%s'%(stacks)]] for j, stacks in enumerate(qso_files)], axis=1)
+        result   = pd.concat([stack_qsos[j][['flux_%s'%(fqso),'ivar_%s'%(fqso)]] for j, fqso in enumerate(qso_files)], axis=1)
         return result.fillna(0).copy()
 
 
@@ -299,14 +308,9 @@ class Qso_catalog(Ini_params):
     def coadds(self, qso_files):
         """ Add coadd column """
 
-        self.coadd_id     = 'coadd_%s'%(self.thids)
-        self.ivar_id      = 'ivar_%s'%(self.thids)
-        self.flux_ivar_id = 'flux_ivar_%s'%(self.thids)
-
         dfall_coadds  = self.stack_repeated(qso_files)
-
         dfall_coadds[self.flux_ivar_id] = 0
-        dfall_coadds[self.ivar_id] = 0
+        dfall_coadds[self.ivar_id]      = 0
 
         for _, fqso in enumerate(qso_files):
             dfall_coadds[self.flux_ivar_id] += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
@@ -370,7 +374,7 @@ class Qso_catalog(Ini_params):
         ax2 = plt.subplot(1, 2, 2)
         dfall_coadds[self.coadd_id].plot(label=self.coadd_id, xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
-        plt.title('THING_ID: %s'%(self.thids))
+        plt.title('THING_ID: %s'%(self.th_id))
         plt.show(block=True)
         return 0
 
@@ -394,14 +398,13 @@ class Qso_catalog(Ini_params):
 
     def write_stats_open(self, rank):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
-
-        self.write_stats = {'all' : open(self.stats_file + '_{}.csv'.format(rank), 'w'),
-                            'trim': open(self.stats_file2 + '_{}.csv'.format(rank), 'w'),
-                            'bad' : open(self.stats_file3 + '_{}.csv'.format(rank), 'w')}
+        self.write_stats = {'all' : open(self.stats_file  + self.suffix.format(rank), 'w'),
+                            'trim': open(self.stats_file2 + self.suffix.format(rank), 'w'),
+                            'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
 
 
     def write_stats_close(self):
-        for i in ['all','trim', 'bad']:
+        for i in ['all', 'trim', 'bad']:
             self.write_stats[i].close()
 
 
@@ -411,13 +414,31 @@ class Qso_catalog(Ini_params):
 
 
 
+    def write_fits(self, result, lpix):
+        data    = (pd.concat([r for r in result], axis=1).fillna(0))
+        nrows   = len(data.index)
+        data    = data.reset_index().to_dict(orient='list')
+        names   = list(data)
+        formats = ['f4']*len(names)
+        fdata   = np.zeros(nrows, dtype=dict(names= names, formats=formats))
+        fdata   = {key:np.array(value) for key,value in data.items()}
+
+        fits = fitsio.FITS(os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix)),'rw')
+        fits.write(fdata, header={'Healpix':'%s'%(lpix)})
+        fits[1].write_comment("From {}, using Npix_side:{}".format(self.full_file, self.Npix_side))
+        if self.verbose: print ('Writing FITS file: %s'%(lpix))
+        fits.close()
+
+
+
+
     def plot_stats(self, size):
         """At the end, collect all chisq and plot a histogram"""
         total_chisq = []
         total_chisq_sec = []
         for i in np.arange(size):
-            Chisq     = pd.read_csv(self.stats_file + '_{}.csv'.format(i))
-            Chisq_sec = pd.read_csv(self.stats_file2 + '_{}.csv'.format(i))
+            Chisq     = pd.read_csv(self.stats_file + self.suffix.format(i))
+            Chisq_sec = pd.read_csv(self.stats_file2 + self.suffix.format(i))
             total_chisq.extend(Chisq.values.flatten())
             total_chisq_sec.extend(Chisq_sec.values.flatten())
 

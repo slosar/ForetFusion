@@ -13,17 +13,16 @@ that satisfy the bit condition and also
     coadd again and get new chisq
 
 """
-import pandas as pd
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:1]):
+    for i, lpix in enumerate(pixel[:]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print (i, {lpix: thingid_repeat})
 
         result= []
-        for thids in thingid_repeat:
-            qso_files = Qsos.get_files(thing_id = thids)
+        for th_id in thingid_repeat:
+            qso_files = Qsos.get_files(thing_id = th_id)
 
             flag = 99
             while flag:
@@ -51,6 +50,6 @@ def split_pixel(pixel, Qsos):
                 qso_files = Qsos.ftrim_chisq(zipchisq)
                 if len(qso_files) == 0:
                     flag = 0
-                    Qsos.write_stats['bad'].write(str(Qsos.thids) + '\n')
-                    print ('Really bad measurement, THING_ID:', Qsos.thids)
-        print (pd.concat([r for r in result], axis=1).fillna(0).head(20))
+                    Qsos.write_stats['bad'].write(str(Qsos.th_id) + '\n')
+                    print ('Really bad measurement, THING_ID:', Qsos.th_id)
+        Qsos.write_fits(result, lpix)
