@@ -31,8 +31,8 @@ class Ini_params():
         self.verbose     = False
         self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
-        self.show_plots  = False
-        self.use_bokeh   = False                           #Playing with interactive plots
+        self.show_plots  = False                          #must be False when using mpi
+        self.use_bokeh   = False                          #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
         self.dir_v5_10   = 'v5_10_0/spectra/'
@@ -135,6 +135,7 @@ class Qso_catalog(Ini_params):
 
     def adding_pixel_column(self):
         """Computing healpix pixel given 'DEC' and 'RA' """
+
         phi_rad   = lambda ra : ra*np.pi/180.
         theta_rad = lambda dec: (90.0 - dec)*np.pi/180.
 
@@ -248,9 +249,6 @@ class Qso_catalog(Ini_params):
             if we dont have the files, get them."""
 
         self.th_id        = thing_id
-        self.coadd_id     = 'coadd_%s'%(self.th_id)
-        self.ivar_id      = 'ivar_%s'%(self.th_id)
-        self.flux_ivar_id = 'flux_ivar_%s'%(self.th_id)
 
         plates   = self.get_names('PLATE')
         mjds     = self.get_names('MJD')
@@ -280,7 +278,7 @@ class Qso_catalog(Ini_params):
         self.df_qsos['file_name'] =  self.dir_v5_10 + self.df_qsos['PLATE'].astype(str) + '/spec-' + \
                 self.df_qsos['PLATE'].astype(str) + '-' + self.df_qsos['MJD'].astype(str)+ '-' + \
                 self.df_qsos['FIBERID'].astype(str).str.zfill(4)
-
+        print (self.df_qsos['file_name'])
         with open(self.Spall_files, 'w') as f:
              for name in self.df_qsos['file_name'].values:
                  f.write(name + '.fits' + '\n')
@@ -296,9 +294,13 @@ class Qso_catalog(Ini_params):
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
             stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
-            stack_qsos[i].rename(columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso)}, inplace=True)
+            columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso),
+                      'and_mask': 'and_mask_%s'%(fqso), 'or_mask': 'or_mask_%s'%(fqso)}
+            stack_qsos[i].rename(columns= columns, inplace=True)
 
-        result   = pd.concat([stack_qsos[j][['flux_%s'%(fqso),'ivar_%s'%(fqso)]] for j, fqso in enumerate(qso_files)], axis=1)
+        result = pd.concat(
+                [stack_qsos[j][['flux_%s'%(fqso), 'ivar_%s'%(fqso), 'and_mask_%s'%(fqso), 'or_mask_%s'%(fqso)]]
+                for j, fqso in enumerate(qso_files)], axis=1)
         return result.fillna(0).copy()
 
 
@@ -308,6 +310,14 @@ class Qso_catalog(Ini_params):
     def coadds(self, qso_files):
         """ Add coadd column """
 
+        self.coadd_id     = 'coadd_%s'%(self.th_id)
+        self.ivar_id      = 'ivar_%s'%(self.th_id)
+        self.flux_ivar_id = 'flux_ivar_%s'%(self.th_id)
+        self.and_mask_id  = 'and_mask_%s'%(self.th_id)
+        self.or_mask_id   = 'or_mask_%s'%(self.th_id)
+
+
+
         dfall_coadds  = self.stack_repeated(qso_files)
         dfall_coadds[self.flux_ivar_id] = 0
         dfall_coadds[self.ivar_id]      = 0
@@ -315,8 +325,13 @@ class Qso_catalog(Ini_params):
         for _, fqso in enumerate(qso_files):
             dfall_coadds[self.flux_ivar_id] += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds[self.ivar_id]      += dfall_coadds['ivar_%s'%(fqso)]
+            dfall_coadds['or_mask_%s'%(fqso)]   = pd.DataFrame(dfall_coadds['or_mask_%s'%(fqso)], dtype='int')
+            dfall_coadds['and_mask_%s'%(fqso)]   = pd.DataFrame(dfall_coadds['and_mask_%s'%(fqso)], dtype='int')
 
-        dfall_coadds[self.coadd_id] = dfall_coadds[self.flux_ivar_id]/dfall_coadds[self.ivar_id]
+
+        dfall_coadds[self.and_mask_id]= (reduce(lambda x, y: x & y, [dfall_coadds['and_mask_%s'%(i)] for i in qso_files]))
+        dfall_coadds[self.or_mask_id] = (reduce(lambda x, y: x | y, [dfall_coadds['or_mask_%s'%(i)]  for i in qso_files]))
+        dfall_coadds[self.coadd_id]   = dfall_coadds[self.flux_ivar_id]/dfall_coadds[self.ivar_id]
 
         dfall_coadds = dfall_coadds.fillna(0).copy()
         return dfall_coadds
@@ -414,7 +429,7 @@ class Qso_catalog(Ini_params):
 
 
 
-    def write_fits(self, result, lpix):
+    def write_fits(self, result, all_qso_files, lpix):
         data    = (pd.concat([r for r in result], axis=1).fillna(0))
         nrows   = len(data.index)
         data    = data.reset_index().to_dict(orient='list')
@@ -424,16 +439,15 @@ class Qso_catalog(Ini_params):
         fdata   = {key:np.array(value) for key,value in data.items()}
 
         fits = fitsio.FITS(os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix)),'rw')
-        fits.write(fdata, header={'Healpix':'%s'%(lpix)})
-        fits[1].write_comment("From {}, using Npix_side:{}".format(self.full_file, self.Npix_side))
+        fits.write(fdata, header={'Healpix':'%s'%(lpix),
+                                  self.full_file: 'Npix_side =%s'%(self.Npix_side) })
+        fits[1].write_comment('{THING_ID: Files} \n %s'%(str(all_qso_files)))
         if self.verbose: print ('Writing FITS file: %s'%(lpix))
         fits.close()
 
 
-
-
     def plot_stats(self, size):
-        """At the end, collect all chisq and plot a histogram"""
+        """Collect all chisq and plot a histogram"""
         total_chisq = []
         total_chisq_sec = []
         for i in np.arange(size):

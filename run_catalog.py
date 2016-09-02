@@ -25,7 +25,7 @@ if rank == 0:
     df_fits = read_sub_fits(dir_files, file_name)
     Qsos    = Qso_catalog(df_fits)
 
-    Qsos.rep_thid    = 5
+    Qsos.rep_thid    = 4
     Qsos.verbose     = True
     Qsos.show_plots  = False
     Qsos.write_names = False
@@ -44,17 +44,17 @@ else:
     chunks = []
     Qsos   = None
 
+
 Qsos = comm.bcast(Qsos, root=0)
-
-
 if Qsos.write_hist: Qsos.write_stats_open(rank)
+
 
 chunk_pix  = comm.scatter(chunks, root=0)
 split_pixel(chunk_pix, Qsos)
 comm.Barrier()
 
-if Qsos.write_hist: Qsos.write_stats_close()
 
+if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0 and Qsos.write_hist and Qsos.show_plots:
     Qsos.plot_stats(size)
     print ('-- stats are on Chisq_dist.csv files')
