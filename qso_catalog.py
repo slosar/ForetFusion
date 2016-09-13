@@ -44,6 +44,7 @@ class Ini_params():
         self.stats_file  = 'Chisq_dist_all'
         self.stats_file2 = 'Chisq_dist_trim'
         self.stats_file3 = 'Chisq_bad'
+        self.stats_file4 = 'master'
         self.suffix      = '_{}.csv'
 
         self.bit_boss    = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
@@ -56,7 +57,7 @@ class Ini_params():
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
         self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1',
-                            'EBOSS_TARGET0','EBOSS_TARGET1']
+                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
@@ -225,13 +226,13 @@ class Qso_catalog(Ini_params):
             self.passwd     = input('sdss passwd:') if self.need_files == 'sdss' else None
 
             if not ('{0} == bnl | {0} == sdss'.format(self.need_files)):
-                sys.exit('** Need to type either bnl or sdss')
+                os.sys.exit('** Need to type either bnl or sdss')
             if self.need_files == 'sdss':
-                try:
+                #try:
                     import mechanize
                     from base64 import b64encode
-                except:
-                    sys.exit("Install mechanize to get files")
+                #except:
+                #    os.sys.exit("Install mechanize to get files")
         return 0
 
 
@@ -255,7 +256,7 @@ class Qso_catalog(Ini_params):
         fiberids = self.get_names('FIBERID')
         plate_n  = ['{}'.format(plate) for plate in plates]
 
-        qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
+        qso_files= ["{0}/spec-{0}-{1}-{2}.fits".format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
         if self.need_files:
@@ -415,12 +416,14 @@ class Qso_catalog(Ini_params):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
         self.write_stats = {'all' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'trim': open(self.stats_file2 + self.suffix.format(rank), 'w'),
-                            'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
+                            'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w'),
+                            'master' : open(self.stats_file4 + self.suffix.format(rank), 'w')}
 
 
     def write_stats_close(self):
-        for i in ['all', 'trim', 'bad']:
+        for i in ['all', 'trim', 'bad', 'master']:
             self.write_stats[i].close()
+
 
 
     def write_stats_file(self, zipchisq, name):
@@ -441,7 +444,7 @@ class Qso_catalog(Ini_params):
         fits = fitsio.FITS(os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix)),'rw')
         fits.write(fdata, header={'Healpix':'%s'%(lpix),
                                   self.full_file: 'Npix_side =%s'%(self.Npix_side) })
-        fits[1].write_comment('{THING_ID: Files} \n %s'%(str(all_qso_files)))
+        #fits[1].write_comment('{THING_ID: Files} \n %s'%(str(all_qso_files)))
         if self.verbose: print ('Writing FITS file: %s'%(lpix))
         fits.close()
 

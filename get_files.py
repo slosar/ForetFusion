@@ -28,13 +28,16 @@ def read_fits(dir_fits, file_name, columns):
         print('File not found: {}'.format(file_name))
         MPI.COMM_WORLD.Abort()
 
-    fits          = fitsio.FITS(file_name)
-    fits_columns  = columns
+    fits       = fitsio.FITS(file_name)
+    fits_cols  = columns
 
     #http://stackoverflow.com/questions/30283836/
     # creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
-    fits_read  = fits[1].read().byteswap().newbyteorder()
-    fits_to_df = {col: fits_read[col] for col in fits_columns}
+    #fits_read  = fits[1].read().byteswap().newbyteorder()
+    #fits_to_df = {col: fits_read[col] for col in fits_columns}
+
+    fits_read  = fits[1].read(columns= fits_cols)
+    fits_to_df = {col:fits_read[col].byteswap().newbyteorder() for col in fits_cols}
     df = pd.DataFrame(fits_to_df)
     return df
 
