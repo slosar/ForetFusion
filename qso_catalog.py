@@ -432,7 +432,7 @@ class Qso_catalog(Ini_params):
 
 
 
-    def write_fits(self, result, all_qso_files, lpix):
+    def write_fits(self, result, lpix):
         data    = (pd.concat([r for r in result], axis=1).fillna(0))
         nrows   = len(data.index)
         data    = data.reset_index().to_dict(orient='list')
