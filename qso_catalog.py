@@ -256,7 +256,7 @@ class Qso_catalog(Ini_params):
         fiberids = self.get_names('FIBERID')
         plate_n  = ['{}'.format(plate) for plate in plates]
 
-        qso_files= ["{0}/spec-{0}-{1}-{2}.fits".format(plate, mjd, str(fiberid).zfill(4))
+        qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
         if self.need_files:

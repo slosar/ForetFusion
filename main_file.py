@@ -13,18 +13,22 @@ that satisfy the bit condition and also
     coadd again and get new chisq
 
 """
+import numpy as np
+import fitsio
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:40]):
+    all_pix  = []
+    all_thid = []
+    all_files= []
+    for i, lpix in enumerate(pixel[:4]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print ('#pix', i, {lpix: thingid_repeat})
 
         result = []
-        all_qso_files = {}
+        #all_qso_files = {}
         for th_id in thingid_repeat:
             qso_files = Qsos.get_files(thing_id = th_id)
-
             flag = 99
             while flag:
                 dfall_qsos = Qsos.coadds(qso_files)
@@ -42,8 +46,15 @@ def split_pixel(pixel, Qsos):
 
                 if flag == 0:
                     result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id, Qsos.or_mask_id]])
-                    thih = "th_%s"%(th_id)
-                    all_qso_files[thih]= qso_files
+                    #thih = "th_%s"%(th_id)
+                    #all_qso_files[thih]= qso_files
+                    all_pix.append(lpix)
+                    all_thid.append(th_id)
+                    #a =np.array(qso_files)
+                    print(len(a))
+                    #a.resize(6)
+                    #all_files.append(a)
+                    all_files.append(qso_files)
                     if Qsos.write_hist:
                         Qsos.write_stats_file(zipchisq, 'trim')
                         Qsos.write_stats['all'].flush(), Qsos.write_stats['trim'].flush()
@@ -56,9 +67,28 @@ def split_pixel(pixel, Qsos):
                     if Qsos.verbose: print ('Really bad measurement, THING_ID:', Qsos.th_id)
                     flag = 0
 
-        if Qsos.write_hist:
-            x = '{"%s":%s}\n'%(lpix,all_qso_files)
-            Qsos.write_stats['master'].write(str(x).replace('\'','"'))
-            Qsos.write_stats['master'].flush()
+        #if Qsos.write_hist:
+        #    x = '{"%s":%s}\n'%(lpix,all_qso_files)
+        #    Qsos.write_stats['master'].write(str(x).replace('\'','"'))
+        #    Qsos.write_stats['master'].flush()
 
         if len(qso_files) != 0: Qsos.write_fits(result, lpix)
+
+    c = max([len(i) for i in all_files])
+    b= []
+    for i in all_files:
+        s= np.array(i)
+        s.resize(c)
+        b.append(s)
+
+#    print([np.array(i).resize(6) for i in all_files])
+
+    data = {}
+    data['pix']   = np.array(all_pix, dtype='i4')
+    data['thid']  = np.array(all_thid, dtype='i4')
+    data['files'] = np.array(b, dtype='S32')
+
+
+    fits = fitsio.FITS('test_fits.fits','rw')
+    fits.write(data)
+    fits.close()
