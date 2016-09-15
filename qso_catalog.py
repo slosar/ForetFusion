@@ -29,6 +29,7 @@ class Ini_params():
 
         self.passwd      = None                           # sdss password
         self.verbose     = False
+        self.write_master= False                          #Write master file with info
         self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False                          #must be False when using mpi
@@ -44,7 +45,6 @@ class Ini_params():
         self.stats_file  = 'Chisq_dist_all'
         self.stats_file2 = 'Chisq_dist_trim'
         self.stats_file3 = 'Chisq_bad'
-        self.stats_file4 = 'master'
         self.suffix      = '_{}.csv'
 
         self.bit_boss    = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
@@ -76,6 +76,9 @@ class Qso_catalog(Ini_params):
         self.df_fits     = df_fits
         self.verbose     = verbose
         self.chisq_dist  = []
+        self.all_lpix    = []
+        self.all_thid    = []
+        self.all_qfiles  = []
         Ini_params.__init__(self)
 
 
@@ -238,11 +241,9 @@ class Qso_catalog(Ini_params):
 
 
 
-
     def get_names(self, name):
         """ Useful to get values given a THING_ID """
         return list(self.df_qsos.query('THING_ID == %s'%(self.th_id))[name].values)
-
 
 
     def get_files(self, thing_id ='thing_id'):
@@ -416,12 +417,11 @@ class Qso_catalog(Ini_params):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
         self.write_stats = {'all' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'trim': open(self.stats_file2 + self.suffix.format(rank), 'w'),
-                            'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w'),
-                            'master' : open(self.stats_file4 + self.suffix.format(rank), 'w')}
+                            'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
 
 
     def write_stats_close(self):
-        for i in ['all', 'trim', 'bad', 'master']:
+        for i in ['all', 'trim', 'bad']:
             self.write_stats[i].close()
 
 
@@ -429,7 +429,7 @@ class Qso_catalog(Ini_params):
     def write_stats_file(self, zipchisq, name):
         for chi in zipchisq.values():
             self.write_stats[name].write(str(chi) + '\n')
-
+        self.write_stats[name].flush()
 
 
     def write_fits(self, result, lpix):
@@ -447,6 +447,48 @@ class Qso_catalog(Ini_params):
         #fits[1].write_comment('{THING_ID: Files} \n %s'%(str(all_qso_files)))
         if self.verbose: print ('Writing FITS file: %s'%(lpix))
         fits.close()
+
+
+
+    def extra_info(self, file, th_id, name):
+        if file:
+            _, plate, mjd, fiber = file.replace('.fits','').split('-')
+            return float(self.df_qsos.query('THING_ID == %s & PLATE == %s & MJD == %s'%(th_id, plate, mjd))[name].values)
+        else:
+            return 0
+
+
+
+
+    def master_fits(self):
+        #array must have same length
+        c = max([len(i) for i in self.all_qfiles])
+        self.all_lfiles=[]
+        for i in self.all_qfiles:
+            bc =  np.array(i)
+            bc.resize(c)
+            self.all_lfiles.append(bc)
+
+        z_err = []; z_war = []; z = []
+        for thid, files in zip(self.all_thid, self.all_lfiles):
+            z_err.append([self.extra_info(i, thid, 'Z_ERR')    for i in files])
+            z_war.append([self.extra_info(i, thid, 'ZWARNING') for i in files])
+            z.append(    [self.extra_info(i, thid, 'Z')        for i in files])
+
+        data = {}
+        data['healpix']   = np.array(self.all_lpix,   dtype='i4')
+        data['thing_id']  = np.array(self.all_thid,   dtype='i4')
+        data['files']     = np.array(self.all_lfiles, dtype='S32')
+        data['z_warning'] = np.array(z_war,           dtype='i4')
+        data['z_err']     = np.array(z_err,           dtype='f4')
+        data['z']         = np.array(z,               dtype='f4')
+
+        os.system("rm master_file.fits")
+        if self.verbose: print (' ... Writing MASTER-FITS file')
+        fits = fitsio.FITS('master_file.fits','rw')
+        fits.write(data)
+        fits.close()
+
 
 
     def plot_stats(self, size):

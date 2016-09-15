@@ -26,10 +26,11 @@ if rank == 0:
     Qsos    = Qso_catalog(df_fits)
 
     Qsos.rep_thid    = 4
-    Qsos.verbose     = True
+    Qsos.verbose     = False
+    Qsos.write_master= True
     Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = True
+    Qsos.write_hist  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
@@ -55,6 +56,8 @@ comm.Barrier()
 
 
 if Qsos.write_hist: Qsos.write_stats_close()
-if rank == 0 and Qsos.write_hist and Qsos.show_plots:
-    Qsos.plot_stats(size)
-    print ('-- stats are on Chisq_dist.csv files')
+if rank == 0:
+    if Qsos.write_hist and Qsos.show_plots:
+        Qsos.plot_stats(size)
+        print ('-- stats are on Chisq_dist.csv files')
+    if Qsos.write_master: Qsos.master_fits()
