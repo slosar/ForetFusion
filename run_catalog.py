@@ -31,7 +31,7 @@ if rank == 0:
     Qsos.write_ffits = True
     Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = False
+    Qsos.write_hist  = True
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
@@ -39,7 +39,7 @@ if rank == 0:
     #print (Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771)'))
 
     if Qsos.write_names: Qsos.write_file_names()
-
+   
     lenpix = len(unique_pixels)
     nchunk = int(math.ceil(lenpix*1./size))
     chunks = [unique_pixels[i:i+ nchunk] for i in range(0, lenpix, nchunk)]
