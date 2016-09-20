@@ -18,9 +18,6 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS','OBJTYPE',
-                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
-
 dir_files = 'data/'
 file_name = 'subset_spAll-v5_10_0.csv'
 
@@ -28,18 +25,17 @@ if rank == 0:
     df_fits = read_sub_fits(dir_files, file_name)
     #df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
     Qsos    = Qso_catalog(df_fits, verbose = True)
-    #print (df_fits['CLASS'].head())
 
     Qsos.rep_thid    = 4
-    Qsos.write_master= False
-    Qsos.write_fits  = False
+    Qsos.write_master= True
+    Qsos.write_ffits = True
     Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = True
+    Qsos.write_hist  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
-    Qsos.ask_for_files(get_files= True)
+    Qsos.ask_for_files(get_files= False)
     #print (Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771)'))
 
     if Qsos.write_names: Qsos.write_file_names()
@@ -63,7 +59,7 @@ comm.Barrier()
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist:
+    if Qsos.write_hist and Qsos.show_plots:
         Qsos.plot_stats(size)
         print ('... stats are on Chisq_dist.csv files')
     if Qsos.write_master: Qsos.master_fits()

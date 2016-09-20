@@ -29,7 +29,7 @@ class Ini_params():
 
         self.passwd      = None                           # sdss password
         self.write_master= False                          #Write master file with info
-        self.write_fits  = False                          #Write fits files for each pix
+        self.write_ffits  = False                          #Write fits files for each pix
         self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False                          #must be False when using mpi
@@ -454,7 +454,8 @@ class Qso_catalog(Ini_params):
         fdata   = {key:np.array(value) for key,value in data.items()}
 
         file_name = os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix))
-        fits = fitsio.FITS(file_name, 'rw')
+        if os.path.isfile(file_name): os.system("rm %s"%(file_name))
+	fits = fitsio.FITS(file_name, 'rw')
         fits.write(fdata, header={'Healpix':'%s'%(lpix), self.full_file: 'Npix_side =%s'%(self.Npix_side) })
         fits.close()
 
