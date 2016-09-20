@@ -23,19 +23,20 @@ file_name = 'subset_spAll-v5_10_0.csv'
 
 if rank == 0:
     df_fits = read_sub_fits(dir_files, file_name)
-    Qsos    = Qso_catalog(df_fits)
+    Qsos    = Qso_catalog(df_fits, verbose = True)
 
     Qsos.rep_thid    = 4
-    Qsos.verbose     = False
-    Qsos.write_master= True
+    Qsos.write_master= False
+    Qsos.write_fits  = False
     Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = False
+    Qsos.write_hist  = True
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
-    Qsos.ask_for_files(get_files= False)
+    Qsos.ask_for_files(get_files= True)
     #print (Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771)'))
+
     if Qsos.write_names: Qsos.write_file_names()
 
     lenpix = len(unique_pixels)
@@ -57,7 +58,7 @@ comm.Barrier()
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist and Qsos.show_plots:
+    if Qsos.write_hist:
         Qsos.plot_stats(size)
-        print ('-- stats are on Chisq_dist.csv files')
+        print ('... stats are on Chisq_dist.csv files')
     if Qsos.write_master: Qsos.master_fits()
