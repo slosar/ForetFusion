@@ -33,8 +33,8 @@ def read_fits(dir_fits, file_name, columns):
 
     #http://stackoverflow.com/questions/30283836/
     # creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
-    #fits_read  = fits[1].read().byteswap().newbyteorder()
-    #fits_to_df = {col: fits_read[col] for col in fits_columns}
+    #fits_read  = fits[1].read(columns= fits_cols).byteswap().newbyteorder()
+    #fits_to_df = {col: fits_read[col] for col in fits_cols}
 
     fits_read  = fits[1].read(columns= fits_cols)
     fits_to_df = {col:fits_read[col].byteswap().newbyteorder() for col in fits_cols}

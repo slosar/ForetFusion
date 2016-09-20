@@ -56,7 +56,7 @@ class Ini_params():
         self.condition   = 'CLASS== "QSO".ljust(6) & (OBJTYPE=="QSO".ljust(16) | ' \
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
-        self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1',
+        self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS','OBJTYPE',
                             'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
