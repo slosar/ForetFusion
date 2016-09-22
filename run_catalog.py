@@ -27,11 +27,11 @@ if rank == 0:
     Qsos    = Qso_catalog(df_fits, verbose = True)
 
     Qsos.rep_thid    = 4
-    Qsos.write_master= True
-    Qsos.write_ffits = True
+    Qsos.write_master= False
+    Qsos.write_ffits = False
     Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = True
+    Qsos.write_hist  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()

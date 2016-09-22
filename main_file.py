@@ -50,5 +50,5 @@ def split_pixel(pixel, Qsos):
                     if Qsos.write_hist: Qsos.write_stats['bad'].write(str(Qsos.th_id) + '\n')
                     if Qsos.verbose: print ('Really bad measurement, THING_ID:', Qsos.th_id)
                     flag = 0
-	#print (len(qso_files) != 0)
-	if Qsos.write_ffits and len(qso_files) != 0: Qsos.write_fits(result, lpix)
+        #print (len(qso_files) != 0)
+        if Qsos.write_ffits and len(qso_files) != 0: Qsos.write_fits(result, lpix)

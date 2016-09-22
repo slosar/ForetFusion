@@ -29,7 +29,7 @@ class Ini_params():
 
         self.passwd      = None                           # sdss password
         self.write_master= False                          #Write master file with info
-        self.write_ffits  = False                          #Write fits files for each pix
+        self.write_ffits = False                          #Write fits files for each pix
         self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False                          #must be False when using mpi
@@ -62,7 +62,7 @@ class Ini_params():
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
         self.sdss_url    = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/'
-        self.bnl_dir     = 'astro:/data/boss/v5_10_0/spectra/'
+        self.bnl_dir     = 'astro:/data/boss/v5_10_0_sky/spectra/'
 
 
     def do_nothing(self):
@@ -134,6 +134,7 @@ class Qso_catalog(Ini_params):
     def my_own_filter(self, condition):
         """Add your own filter condition"""
         self.df_qsos = self.df_fits.query(condition).copy()
+        print(self.df_qsos.head())
 
 
 
@@ -286,32 +287,32 @@ class Qso_catalog(Ini_params):
 
         print ('... Printing file-names in {}'.format(self.Spall_files))
 
-        self.df_qsos[fnames] =  self.dir_v5_10 + self.df_qsos['PLATE'].astype(str) + '/spec-' + \
+        self.df_qsos[fnames] =  self.df_qsos['PLATE'].astype(str) + '/spec-' + \
                 self.df_qsos['PLATE'].astype(str) + '-' + self.df_qsos['MJD'].astype(str)+ '-' + \
-                self.df_qsos['FIBERID'].astype(str).str.zfill(4)
+                self.df_qsos['FIBERID'].astype(str).str.zfill(4) + '.fits'
 
-        print (self.df_qsos[fnames].head())
         with open(self.Spall_files, 'w') as f:
-             for name in self.df_qsos[fnames].values:
-                 f.write(name + '.fits' + '\n')
-        return 0
+             for name in (self.dir_v5_10 + self.df_qsos[fnames]).values:
+                 f.write(name + '\n')
+
+        return self.df_qsos[fnames]
 
 
 
 
 
-    def stack_repeated(self, qso_files):
+    def stack_them(self, qso_files):
         """Stack all the files in a single one, so is easier to coadd them"""
 
         stack_qsos = []
         for i, fqso in enumerate(qso_files):
             stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
-            columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso),
+            columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso), 'sky': 'sky_%s'%(fqso),
                       'and_mask': 'and_mask_%s'%(fqso), 'or_mask': 'or_mask_%s'%(fqso)}
             stack_qsos[i].rename(columns= columns, inplace=True)
 
         result = pd.concat(
-                [stack_qsos[j][['flux_%s'%(fqso), 'ivar_%s'%(fqso), 'and_mask_%s'%(fqso), 'or_mask_%s'%(fqso)]]
+                [stack_qsos[j][['flux_%s'%(fqso), 'ivar_%s'%(fqso), 'sky_%s'%(fqso), 'and_mask_%s'%(fqso), 'or_mask_%s'%(fqso)]]
                 for j, fqso in enumerate(qso_files)], axis=1)
 
         return result.fillna(0).copy()
@@ -330,12 +331,12 @@ class Qso_catalog(Ini_params):
         self.or_mask_id   = 'or_mask_%s'%(self.th_id)
 
 
-        dfall_coadds  = self.stack_repeated(qso_files)
+        dfall_coadds  = self.stack_them(qso_files)
         dfall_coadds[self.flux_ivar_id] = 0
         dfall_coadds[self.ivar_id]      = 0
 
         for _, fqso in enumerate(qso_files):
-            dfall_coadds[self.flux_ivar_id]    += dfall_coadds['flux_%s'%(fqso)]*dfall_coadds['ivar_%s'%(fqso)]
+            dfall_coadds[self.flux_ivar_id]    += (dfall_coadds['flux_%s'%(fqso)] + dfall_coadds['sky_%s'%(fqso)] )*dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds[self.ivar_id]         += dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds['or_mask_%s'%(fqso)]   = pd.DataFrame(dfall_coadds['or_mask_%s'%(fqso)], dtype='int')
             dfall_coadds['and_mask_%s'%(fqso)]  = pd.DataFrame(dfall_coadds['and_mask_%s'%(fqso)], dtype='int')
@@ -394,7 +395,7 @@ class Qso_catalog(Ini_params):
 
         ax = plt.subplot(1, 2, 1)
         for fqso, chisq in zipchisq.items():
-            dfall_coadds['flux_%s'%(fqso)].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), chisq),
+            dfall_coadds[['flux_%s'%(fqso),'sky_%s'%(fqso)]].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), chisq),
                                          xlim=xlimits, ylim=ylimits, ax=ax)
         plt.legend(loc='best')
 
@@ -455,7 +456,7 @@ class Qso_catalog(Ini_params):
 
         file_name = os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix))
         if os.path.isfile(file_name): os.system("rm %s"%(file_name))
-	fits = fitsio.FITS(file_name, 'rw')
+        fits = fitsio.FITS(file_name, 'rw')
         fits.write(fdata, header={'Healpix':'%s'%(lpix), self.full_file: 'Npix_side =%s'%(self.Npix_side) })
         fits.close()
 
