@@ -25,7 +25,7 @@ class Ini_params():
 
         self.trim_chisq  = 2                              #Thresold to discriminate from coadds
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
-        self.Npix_side   = 2**5                           #Nside to compute healpix
+        self.Npix_side   = 2**6                           #Nside to compute healpix
 
         self.passwd      = None                           #sdss password
         self.run_sky     = False                          #to run sky+flux calculations
@@ -164,7 +164,7 @@ class Qso_catalog(Ini_params):
         """Given a pixel, return the THING_ID and the number of times is repeated"""
 
         rep_thing_id = self.df_qsos.query('PIX == {}'.format(pix_id)).groupby('THING_ID').size()
-
+	
         if not rep_thing_id[rep_thing_id >= self.rep_thid].empty:
             uniqeid = dict(rep_thing_id[rep_thing_id >= self.rep_thid])
         else:
@@ -434,6 +434,7 @@ class Qso_catalog(Ini_params):
         self.write_stats = {'all' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'trim': open(self.stats_file2 + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
+	self.write_stats['bad'].write('#THING_ID with pure noise: Chisq<2 \n')
 
 
     def write_stats_close(self):
@@ -451,7 +452,7 @@ class Qso_catalog(Ini_params):
 
 
     def write_fits(self, result, lpix):
-        data    = (pd.concat([r for r in result], axis=1).fillna(0))
+        data    = pd.concat([r for r in result], axis=1).fillna(0)
         nrows   = len(data.index)
         data    = data.reset_index().to_dict(orient='list')
         names   = list(data)
@@ -481,24 +482,23 @@ class Qso_catalog(Ini_params):
 
 
 
-    def master_fits(self):
-        #array must have same length
-        max_str = max([len(i) for i in self.all_qfiles])
+    def master_fits(self, lpix, thid, qfiles):
+        max_str = max([len(i) for i in qfiles])
         all_lfiles=[]
-        for i in self.all_qfiles:
+        for i in qfiles:
             resize_str =  np.array(i)
             resize_str.resize(max_str)
             all_lfiles.append(resize_str)
 
         z_err = []; z_war = []; z = []
-        for thid, files in zip(self.all_thid, all_lfiles):
-            z_err.append([self.extra_info(i, thid, 'Z_ERR')    for i in files])
-            z_war.append([self.extra_info(i, thid, 'ZWARNING') for i in files])
-            z.append(    [self.extra_info(i, thid, 'Z')        for i in files])
+        for thi, files in zip(thid, all_lfiles):
+            z_err.append([self.extra_info(i, thi, 'Z_ERR')    for i in files])
+            z_war.append([self.extra_info(i, thi, 'ZWARNING') for i in files])
+            z.append(    [self.extra_info(i, thi, 'Z')        for i in files])
 
         data = {}
-        data['healpix']   = np.array(self.all_lpix,   dtype='i4')
-        data['thing_id']  = np.array(self.all_thid,   dtype='i4')
+        data['healpix']   = np.array(lpix,            dtype='i4')
+        data['thing_id']  = np.array(thid,            dtype='i4')
         data['files']     = np.array(all_lfiles,      dtype='S32')
         data['z_warning'] = np.array(z_war,           dtype='i4')
         data['z_err']     = np.array(z_err,           dtype='f4')

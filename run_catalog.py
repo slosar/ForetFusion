@@ -10,6 +10,7 @@
 
 
 import math
+import numpy as np
 from qso_catalog import Qso_catalog
 from main_file import split_pixel
 from get_files import *
@@ -24,14 +25,14 @@ file_name = 'subset_spAll-v5_10_0.csv'
 if rank == 0:
     df_fits = read_sub_fits(dir_files, file_name)
     #df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
-    Qsos    = Qso_catalog(df_fits, verbose = True)
+    Qsos    = Qso_catalog(df_fits, verbose = False)
 
-    Qsos.rep_thid    = 4
-    Qsos.write_master= False
+    Qsos.rep_thid    = 2
+    Qsos.write_master= True
     Qsos.write_ffits = False
-    Qsos.show_plots  = True
+    Qsos.show_plots  = False
     Qsos.write_names = False
-    Qsos.write_hist  = True
+    Qsos.write_hist  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
@@ -51,15 +52,17 @@ else:
 Qsos = comm.bcast(Qsos, root=0)
 if Qsos.write_hist: Qsos.write_stats_open(rank)
 
-
 chunk_pix  = comm.scatter(chunks, root=0)
-split_pixel(chunk_pix, Qsos)
+split_pixel(chunk_pix[:5], Qsos)
 comm.Barrier()
 
+lpix =  comm.gather(Qsos.all_lpix, root=0)
+thid =  comm.gather(Qsos.all_thid, root=0)
+qfiles= comm.gather(Qsos.all_qfiles, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
     if Qsos.write_hist and Qsos.show_plots:
         Qsos.plot_stats(size)
         print ('... stats are on Chisq_dist.csv files')
-    if Qsos.write_master: Qsos.master_fits()
+    if Qsos.write_master: Qsos.master_fits(np.hstack(lpix), np.hstack(thid), np.hstack(qfiles))
