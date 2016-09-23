@@ -27,7 +27,8 @@ class Ini_params():
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
         self.Npix_side   = 2**5                           #Nside to compute healpix
 
-        self.passwd      = None                           # sdss password
+        self.passwd      = None                           #sdss password
+        self.run_sky     = False                          #to run sky+flux calculations
         self.write_master= False                          #Write master file with info
         self.write_ffits = False                          #Write fits files for each pix
         self.write_hist  = False                          #Write chisq distribution files
@@ -134,7 +135,7 @@ class Qso_catalog(Ini_params):
     def my_own_filter(self, condition):
         """Add your own filter condition"""
         self.df_qsos = self.df_fits.query(condition).copy()
-        print(self.df_qsos.head())
+        return 0
 
 
 
@@ -336,7 +337,9 @@ class Qso_catalog(Ini_params):
         dfall_coadds[self.ivar_id]      = 0
 
         for _, fqso in enumerate(qso_files):
-            dfall_coadds[self.flux_ivar_id]    += (dfall_coadds['flux_%s'%(fqso)] + dfall_coadds['sky_%s'%(fqso)] )*dfall_coadds['ivar_%s'%(fqso)]
+            flux = dfall_coadds['flux_%s'%(fqso)]
+            if self.run_sky: flux += dfall_coadds['sky_%s'%(fqso)]
+            dfall_coadds[self.flux_ivar_id]    += ( flux  )*dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds[self.ivar_id]         += dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds['or_mask_%s'%(fqso)]   = pd.DataFrame(dfall_coadds['or_mask_%s'%(fqso)], dtype='int')
             dfall_coadds['and_mask_%s'%(fqso)]  = pd.DataFrame(dfall_coadds['and_mask_%s'%(fqso)], dtype='int')

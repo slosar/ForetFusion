@@ -24,12 +24,11 @@ Qsos    = Qso_catalog(df_fits, verbose = False)
 
 Qsos.my_own_filter(condition= 'OBJTYPE=="SKY".ljust(16)')
 qso_files = Qsos.write_file_names()
-qso_test = qso_files.tolist()[:400]
+qso_test  = qso_files.tolist()[:400]
 [(Qsos.get_bnl_files(qso.split('/')[0],qso) if not os.path.isfile(Qsos.dir_spec + qso) else print('have it')) for qso in qso_test]
 qso_split = np.split(np.array(qso_test), split)
 
 stack_flux     = []; stack_ivar     = []
-
 for i, qso in enumerate(qso_split):
     Qsos.th_id = i
     dfall_qsos = Qsos.coadds(qso_split[i])
