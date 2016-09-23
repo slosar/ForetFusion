@@ -36,7 +36,7 @@ class Ini_params():
         self.show_plots  = False                          #must be False when using mpi
         self.use_bokeh   = False                          #Playing with interactive plots
 
-        self.dir_spec    = 'data/spectra_sky/'
+        self.dir_spec    = 'data/spectra/'
         self.dir_v5_10   = 'v5_10_0/spectra/'
         self.pix_dir     = 'healpix/'
 
@@ -398,7 +398,9 @@ class Qso_catalog(Ini_params):
 
         ax = plt.subplot(1, 2, 1)
         for fqso, chisq in zipchisq.items():
-            dfall_coadds[['flux_%s'%(fqso),'sky_%s'%(fqso)]].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), chisq),
+            flux = 'flux_%s'%(fqso)
+            if self.run_sky: flux = [flux, 'sky_%s'%(fqso)]
+            dfall_coadds[flux].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), chisq),
                                          xlim=xlimits, ylim=ylimits, ax=ax)
         plt.legend(loc='best')
 

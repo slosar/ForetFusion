@@ -29,9 +29,9 @@ if rank == 0:
     Qsos.rep_thid    = 4
     Qsos.write_master= False
     Qsos.write_ffits = False
-    Qsos.show_plots  = False
+    Qsos.show_plots  = True
     Qsos.write_names = False
-    Qsos.write_hist  = False
+    Qsos.write_hist  = True
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
