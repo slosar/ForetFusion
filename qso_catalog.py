@@ -36,7 +36,7 @@ class Ini_params():
         self.show_plots  = False                          #must be False when using mpi
         self.use_bokeh   = False                          #Playing with interactive plots
 
-        self.dir_spec    = 'data/spectra/'
+        self.dir_spec    = 'data/spectra_sky/'
         self.dir_v5_10   = 'v5_10_0/spectra/'
         self.pix_dir     = 'healpix/'
 
