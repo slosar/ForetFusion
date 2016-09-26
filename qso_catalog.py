@@ -43,8 +43,7 @@ class Ini_params():
         self.full_file   = 'spAll-v5_10_0.fits'
         self.Spall_files = 'SpAll_files.csv'
 
-        self.stats_file  = 'Chisq_dist_all'
-        self.stats_file2 = 'Chisq_dist_trim'
+        self.stats_file  = 'Chisq_dist'
         self.stats_file3 = 'Chisq_bad'
         self.suffix      = '_{}.csv'
 
@@ -58,12 +57,12 @@ class Ini_params():
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
         self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS','OBJTYPE',
-                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
+                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING','MODELMAG']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
         self.sdss_url    = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/'
-        self.bnl_dir     = 'astro:/data/boss/v5_10_0_sky/spectra/'
+        self.bnl_dir     = 'astro:/data/boss/v5_10_0/spectra/'
 
 
     def do_nothing(self):
@@ -302,27 +301,24 @@ class Qso_catalog(Ini_params):
 
 
 
-    def stack_them(self, qso_files):
+    def stack_them(self, dic_file):
         """Stack all the files in a single one, so is easier to coadd them"""
 
         stack_qsos = []
-        for i, fqso in enumerate(qso_files):
-            stack_qsos.append(read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam'))
+        for fqso, df in dic_file.items():
             columns= {'flux': 'flux_%s'%(fqso), 'ivar': 'ivar_%s'%(fqso), 'sky': 'sky_%s'%(fqso),
-                      'and_mask': 'and_mask_%s'%(fqso), 'or_mask': 'or_mask_%s'%(fqso)}
-            stack_qsos[i].rename(columns= columns, inplace=True)
+                        'and_mask': 'and_mask_%s'%(fqso), 'or_mask': 'or_mask_%s'%(fqso)}
+            df.rename(columns= columns, inplace=True)
+            stack_qsos.append(df)
 
-        result = pd.concat(
-                [stack_qsos[j][['flux_%s'%(fqso), 'ivar_%s'%(fqso), 'sky_%s'%(fqso), 'and_mask_%s'%(fqso), 'or_mask_%s'%(fqso)]]
-                for j, fqso in enumerate(qso_files)], axis=1)
-
+        result = pd.concat(stack_qsos, axis=1)
         return result.fillna(0).copy()
 
 
 
 
 
-    def coadds(self, qso_files):
+    def coadds(self, dic_file):
         """ Add coadd, and_mask and or_mask columns for a given THING_ID """
 
         self.coadd_id     = 'coadd_%s'%(self.th_id)
@@ -332,11 +328,11 @@ class Qso_catalog(Ini_params):
         self.or_mask_id   = 'or_mask_%s'%(self.th_id)
 
 
-        dfall_coadds  = self.stack_them(qso_files)
+        dfall_coadds  = self.stack_them(dic_file)
         dfall_coadds[self.flux_ivar_id] = 0
         dfall_coadds[self.ivar_id]      = 0
 
-        for _, fqso in enumerate(qso_files):
+        for _, fqso in enumerate(dic_file.keys()):
             flux = dfall_coadds['flux_%s'%(fqso)]
             if self.run_sky: flux += dfall_coadds['sky_%s'%(fqso)]
             dfall_coadds[self.flux_ivar_id]    += ( flux  )*dfall_coadds['ivar_%s'%(fqso)]
@@ -345,8 +341,8 @@ class Qso_catalog(Ini_params):
             dfall_coadds['and_mask_%s'%(fqso)]  = pd.DataFrame(dfall_coadds['and_mask_%s'%(fqso)], dtype='int')
 
 
-        dfall_coadds[self.and_mask_id] = (reduce(lambda x, y: x & y, [dfall_coadds['and_mask_%s'%(i)] for i in qso_files]))
-        dfall_coadds[self.or_mask_id]  = (reduce(lambda x, y: x | y, [dfall_coadds['or_mask_%s'%(i)]  for i in qso_files]))
+        dfall_coadds[self.and_mask_id] = (reduce(lambda x, y: x & y, [dfall_coadds['and_mask_%s'%(i)] for i in dic_file.keys()]))
+        dfall_coadds[self.or_mask_id]  = (reduce(lambda x, y: x | y, [dfall_coadds['or_mask_%s'%(i)]  for i in dic_file.keys()]))
         dfall_coadds[self.coadd_id]    = dfall_coadds[self.flux_ivar_id] / dfall_coadds[self.ivar_id]
 
         dfall_coadds = dfall_coadds.fillna(0).copy()
@@ -354,58 +350,77 @@ class Qso_catalog(Ini_params):
 
 
 
-
-    def comp_chisq(self, fqso, dfall_coadds):
-        """chisq with respect to zero flux """
-        tmp = (0.0*dfall_coadds[self.coadd_id].values - dfall_coadds['flux_%s'%(fqso)].values)**2
-        return np.sum(tmp*dfall_coadds['ivar_%s'%(fqso)].values)
+    def comp_chisq(self, df):
+        return np.sum((df['flux'].values)**2*df['ivar'].values)/len(df['flux'].values)
 
 
 
+    def cal_chisq(self, qso_files):
+        dic_file  = {}
+        dic_chisq = {}
+        for fqso in qso_files:
+            df_file = read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam')
+            chisq   = self.comp_chisq(df_file)
+            if chisq > self.trim_chisq:
+                dic_file[fqso]  = df_file
+                dic_chisq[fqso] = chisq
+        #print ('fraction', len(dic_file)/len(qso_files))
+        return dic_file, dic_chisq
 
-    def calc_chisq(self, qso_files, dfall_coadds):
-        """Compute chisq and return a dict with files'name and chisq"""
-
-        chi_sq_all =[]
-        for _, fqso in enumerate(qso_files):
-            chis_sq = self.comp_chisq(fqso, dfall_coadds)
-            chi_sq_all.append(chis_sq/len(dfall_coadds.values))
-                #careful: len(dfall_coadds.values) != len(individuals)
-        return dict(zip(qso_files, chi_sq_all))
 
 
-
-
-    def ftrim_chisq(self, zipchisq):
-        """Function to select observations that have trim_chisq < chisq"""
-
-        tmp_zipchisq = zipchisq.copy()
-        for files, chisq in zipchisq.items():
-            if chisq < self.trim_chisq:
-                del tmp_zipchisq[files]
-            else: continue
-
-        return list(tmp_zipchisq)
+    if False:
+        def comp_chisq(self, fqso, dfall_coadds):
+            """chisq with respect to zero flux """
+            tmp = (0.0*dfall_coadds[self.coadd_id].values - dfall_coadds['flux_%s'%(fqso)].values)**2
+            return np.sum(tmp*dfall_coadds['ivar_%s'%(fqso)].values)
 
 
 
 
-    def plot_coadds(self, dfall_coadds, zipchisq):
+        def calc_chisq(self, qso_files, dfall_coadds):
+            """Compute chisq and return a dict with files'name and chisq"""
+
+            chi_sq_all =[]
+            for _, fqso in enumerate(qso_files):
+                chis_sq = self.comp_chisq(fqso, dfall_coadds)
+                chi_sq_all.append(chis_sq/len(dfall_coadds.values))
+                    #careful: len(dfall_coadds.values) != len(individuals)
+            return dict(zip(qso_files, chi_sq_all))
+
+
+
+
+        def ftrim_chisq(self, zipchisq):
+            """Function to select observations that have trim_chisq < chisq"""
+
+            tmp_zipchisq = zipchisq.copy()
+            for files, chisq in zipchisq.items():
+                if chisq < self.trim_chisq:
+                    del tmp_zipchisq[files]
+                else: continue
+
+            return list(tmp_zipchisq)
+
+
+
+
+    def plot_coadds(self, dfall_qsos, dic_chisq):
         """Plot the spectra and coadds"""
 
         plt.figure(figsize = (18, 8))
         xlimits = [3.55, 4]; ylimits = [-10, 25]
 
         ax = plt.subplot(1, 2, 1)
-        for fqso, chisq in zipchisq.items():
+        for fqso in dic_chisq.keys():
             flux = 'flux_%s'%(fqso)
             if self.run_sky: flux = [flux, 'sky_%s'%(fqso)]
-            dfall_coadds[flux].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), chisq),
+            dfall_qsos[flux].plot(label='%s  , Chisq=%s'%(fqso.replace('.fits',''), dic_chisq[fqso]),
                                          xlim=xlimits, ylim=ylimits, ax=ax)
         plt.legend(loc='best')
 
         ax2 = plt.subplot(1, 2, 2)
-        dfall_coadds[self.coadd_id].plot(label=self.coadd_id, xlim=xlimits, ylim=ylimits, ax=ax2)
+        dfall_qsos[self.coadd_id].plot(label=self.coadd_id, xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
         plt.title('THING_ID: %s'%(self.th_id))
         plt.show(block=True)
@@ -413,15 +428,15 @@ class Qso_catalog(Ini_params):
 
 
 
-    def plot_chisq_dist(self, zipchisq):
+    def plot_chisq_dist(self, frac):
         """Save chisq for all spectra, and plot a histogram on the fly"""
 
-        for i in zipchisq.values():
-            self.chisq_dist.append(i)
+        #for i in zipchisq.values():
+        self.chisq_dist.append(frac)
 
-        plt.hist(self.chisq_dist, bins=100, range=(0,10))
+        plt.hist(self.chisq_dist, bins=10, range=(0.0, 1.0))
         plt.ylabel('#')
-        plt.xlabel('Chisq')
+        plt.xlabel('Fraction Chisq')
         plt.title('Chisq Histogram')
         plt.show(block=True)
         #plt.savefig('chisq.pdf')
@@ -431,24 +446,24 @@ class Qso_catalog(Ini_params):
 
     def write_stats_open(self, rank):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
-        self.write_stats = {'all' : open(self.stats_file  + self.suffix.format(rank), 'w'),
-                            'trim': open(self.stats_file2 + self.suffix.format(rank), 'w'),
+        self.write_stats = {'dist' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
-	self.write_stats['bad'].write('#THING_ID with pure noise: Chisq<2 \n')
+        self.write_stats['bad'].write('#THING_ID with pure noise: Chisq<2 \n')
+
 
 
     def write_stats_close(self):
         """Close files"""
-        for i in ['all', 'trim', 'bad']:
+        for i in ['dist', 'bad']:
             self.write_stats[i].close()
 
 
 
-    def write_stats_file(self, zipchisq, name):
+    def write_stats_file(self, frac, name):
         """Write chisq"""
-        for chi in zipchisq.values():
-            self.write_stats[name].write(str(chi) + '\n')
+        self.write_stats[name].write(str(frac) + '\n')
         self.write_stats[name].flush()
+
 
 
     def write_fits(self, result, lpix):
@@ -514,24 +529,21 @@ class Qso_catalog(Ini_params):
 
     def plot_stats(self, size):
         """Collect all chisq and plot a histogram"""
+
         total_chisq = []
-        total_chisq_sec = []
         for i in np.arange(size):
             Chisq     = pd.read_csv(self.stats_file  + self.suffix.format(i))
-            Chisq_sec = pd.read_csv(self.stats_file2 + self.suffix.format(i))
             total_chisq.extend(Chisq.values.flatten())
-            total_chisq_sec.extend(Chisq_sec.values.flatten())
 
         chisq_ = 'chisq'
         df     = pd.DataFrame(total_chisq,     columns=[chisq_])
-        df_sec = pd.DataFrame(total_chisq_sec, columns=[chisq_])
 
         if self.verbose:
             print("\n Statistics of chisq distribution")
-            print (df[chisq_].describe(), df_sec[chisq_].describe())
+            print (df[chisq_].describe())
 
         bins  = 80
-        range = (0,50)
+        range = (0,1)
 
         if self.use_bokeh:
             try:
@@ -542,12 +554,8 @@ class Qso_catalog(Ini_params):
                 p1 = figure(title="Counting chisq for repeated THING_ID", tools=TOOLS)
 
                 hist, edges = np.histogram(df[chisq_], density=False, bins=bins, range=range)
-                hist2, edges2 = np.histogram(df_sec[chisq_], density=False, bins=bins, range=range)
-
                 p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:],
                         fill_color="blue", line_color="#FF7373", legend="Chisq-all: %s"%(len(df)))
-                p1.quad(top=hist2, bottom=0, left=edges2[:-1], right=edges2[1:],
-                        fill_color="red", line_color="#92D7FF", legend="Chisq > 2: %s"%(len(df_sec)))
 
                 p1.xaxis.axis_label = 'Chisq'
                 p1.yaxis.axis_label = '#'
@@ -560,7 +568,6 @@ class Qso_catalog(Ini_params):
             plt.figure()
             ax = plt.subplot(111)
             df[chisq_].plot.hist(    bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
-            df_sec[chisq_].plot.hist(bins=bins, range=range, alpha=0.5, ax=ax, color='b', label='After loop, %s'%(len(df_sec)))
 
             plt.ylabel('#')
             plt.xlabel(chisq_)
@@ -572,6 +579,6 @@ class Qso_catalog(Ini_params):
 
 if __name__=='__main__':
     print ("goofing around :P ")
-
-
+    Qsos    = Qso_catalog(None, verbose = True)
+    Qsos.plot_stats(1)
 
