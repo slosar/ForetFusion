@@ -1,5 +1,5 @@
 mode: bycore
-N: 4
+N: 8
 threads: 1
 hostfile: auto
 job_name: sdss_catalog

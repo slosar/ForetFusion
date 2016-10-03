@@ -4,6 +4,7 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from get_files import *
 from functools import reduce
+import seaborn as sns
 import fitsio
 
 pd.set_option('display.mpl_style', 'default')
@@ -364,7 +365,8 @@ class Qso_catalog(Ini_params):
             if chisq > self.trim_chisq:
                 dic_file[fqso]  = df_file
                 dic_chisq[fqso] = chisq
-        #print ('fraction', len(dic_file)/len(qso_files))
+	    else:
+	        if self.write_hist: self.write_stats_file(str(self.th_id) + ',' + str(fqso) + ', chisq: ' + str(chisq), 'bad')
         return dic_file, dic_chisq
 
 
@@ -448,7 +450,8 @@ class Qso_catalog(Ini_params):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
         self.write_stats = {'dist' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
-        self.write_stats['bad'].write('#THING_ID with pure noise: Chisq<2 \n')
+        self.write_stats['bad'].write('#Spec with pure noise: Chisq<2 \n')
+	self.write_stats['bad'].write('#THING_ID, file, chisq \n')
 
 
 
@@ -467,22 +470,22 @@ class Qso_catalog(Ini_params):
 
 
     def write_fits(self, result, lpix):
-        data    = pd.concat([r for r in result], axis=1).fillna(0)
-        nrows   = len(data.index)
-        data    = data.reset_index().to_dict(orient='list')
-        names   = list(data)
-        formats = ['f4']*len(names)
-        fdata   = np.zeros(nrows, dtype=dict(names= names, formats=formats))
-        fdata   = {key:np.array(value) for key,value in data.items()}
+         data    = pd.concat([r for r in result], axis=1).fillna(0)
+         nrows   = len(data.index)
+         data    = data.reset_index().to_dict(orient='list')
+         names   = list(data)
+         formats = ['f4']*len(names)
+         fdata   = np.zeros(nrows, dtype=dict(names= names, formats=formats))
+         fdata   = {key:np.array(value) for key,value in data.items()}
 
-        file_name = os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix))
-        if os.path.isfile(file_name): os.system("rm %s"%(file_name))
-        fits = fitsio.FITS(file_name, 'rw')
-        fits.write(fdata, header={'Healpix':'%s'%(lpix), self.full_file: 'Npix_side =%s'%(self.Npix_side) })
-        fits.close()
+         file_name = os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix))
+         if os.path.isfile(file_name): os.system("rm %s"%(file_name))
+         fits = fitsio.FITS(file_name, 'rw')
+         fits.write(fdata, header={'Healpix':'%s'%(lpix), self.full_file: 'Npix_side =%s'%(self.Npix_side) })
+         fits.close()
 
-        if self.verbose: print ('... Writing FITS file: %s'%(lpix))
-
+         if self.verbose: print ('... Writing FITS file: %s'%(lpix))
+	
 
 
 
@@ -530,19 +533,20 @@ class Qso_catalog(Ini_params):
     def plot_stats(self, size):
         """Collect all chisq and plot a histogram"""
 
+	chisq_ = 'chisq'
         total_chisq = []
         for i in np.arange(size):
-            Chisq     = pd.read_csv(self.stats_file  + self.suffix.format(i))
-            total_chisq.extend(Chisq.values.flatten())
-
-        chisq_ = 'chisq'
-        df     = pd.DataFrame(total_chisq,     columns=[chisq_])
-
+            Chisq     = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s', 
+			names=['THING_ID','#number',chisq_] ,header=None)
+            total_chisq.append(Chisq)
+	
+        df = pd.concat(total_chisq) 
+ 		
         if self.verbose:
             print("\n Statistics of chisq distribution")
             print (df[chisq_].describe())
 
-        bins  = 80
+        bins  = 10
         range = (0,1)
 
         if self.use_bokeh:
@@ -564,14 +568,21 @@ class Qso_catalog(Ini_params):
             except:
                 print ('Install Bokeh for fun')
         else:
-            #standard matplotlib
-            plt.figure()
-            ax = plt.subplot(111)
-            df[chisq_].plot.hist(    bins=bins, range=range, alpha=0.9, ax=ax, color='r', label='Chisqs, %s'%(len(df)))
-
-            plt.ylabel('#')
-            plt.xlabel(chisq_)
-            plt.legend(loc = 'best')
+	    dict={}
+	    for i in np.arange(1,17):
+		x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
+		dict[i] = np.array([np.log(j) if j!=0 else 0 for j in x ])
+	    final = pd.DataFrame(index =[i/10. for i in np.arange(10)], data=dict)
+	    print(final.sort(axis=1))
+	
+	    plt.figure()
+	    ax = plt.subplot(111)
+	    sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, 
+		linecolor='white', cmap="YlGnBu",  label='Total:%s'%(len(df)), ax=ax)
+	    plt.ylabel('% accepted per THING_ID')	
+	    plt.xlabel('Repeated THING_ID')  
+	    plt.title('Total Qsos:%s'%(len(df)))
+	    plt.legend(loc = 'best')
             plt.show(block=True)
 
 
@@ -580,5 +591,5 @@ class Qso_catalog(Ini_params):
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(1)
+    Qsos.plot_stats(8)
 
