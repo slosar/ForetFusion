@@ -22,8 +22,8 @@ def split_pixel(pixel, Qsos):
         result = []
 
         for th_id in thingid_repeat.keys():
-            qso_files = Qsos.get_files(thing_id = th_id)
-            dic_file, dic_chisq = Qsos.cal_chisq(qso_files)
+            qso_files = Qsos.get_files(thing_id = th_id) 
+            dic_file, dic_chisq, dict_z = Qsos.cal_chisq(qso_files)
 
             frac = len(dic_file)*1./len(qso_files)
 
@@ -36,7 +36,8 @@ def split_pixel(pixel, Qsos):
             dfall_qsos = Qsos.coadds(dic_file)
 
             if Qsos.write_ffits:  result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id,Qsos.or_mask_id]])
-            if Qsos.write_master: Qsos.all_lpix.append(lpix); Qsos.all_thid.append(th_id); Qsos.all_qfiles.append(qso_files)
+            if Qsos.write_master: Qsos.all_lpix.append(lpix); Qsos.all_thid.append(th_id); Qsos.all_qfiles.append(dict_z)
             if Qsos.show_plots: Qsos.plot_coadds(dfall_qsos, dic_chisq)
-
+	
         if Qsos.write_ffits and (len(result) !=0) : Qsos.write_fits(result, lpix)
+   

@@ -280,6 +280,17 @@ class Qso_catalog(Ini_params):
 
 
 
+#    def get_zvalues(self, thing_id ='thing_id'):
+#	""" Get ZWARNING, Z_ERR, Z"""
+	
+#	zwarning = self.get_names('ZWARNING')
+#	zerr	 = self.get_names('Z_ERR')	
+#	z	 = self.get_names('Z')
+#	return (zwarning, zerr, z)
+
+
+
+
     def write_file_names(self):
         """ Write a file that contains all names.fits for filtered quasars,
         so we can get them later from NERSC """
@@ -359,6 +370,8 @@ class Qso_catalog(Ini_params):
     def cal_chisq(self, qso_files):
         dic_file  = {}
         dic_chisq = {}
+	dict_z    = self.get_zvalues(qso_files)
+
         for fqso in qso_files:
             df_file = read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam')
             chisq   = self.comp_chisq(df_file)
@@ -366,43 +379,22 @@ class Qso_catalog(Ini_params):
                 dic_file[fqso]  = df_file
                 dic_chisq[fqso] = chisq
 	    else:
+		del dict_z[fqso]
 	        if self.write_hist: self.write_stats_file(str(self.th_id) + ',' + str(fqso) + ', chisq: ' + str(chisq), 'bad')
-        return dic_file, dic_chisq
+        return dic_file, dic_chisq, dict_z
 
 
 
-    if False:
-        def comp_chisq(self, fqso, dfall_coadds):
-            """chisq with respect to zero flux """
-            tmp = (0.0*dfall_coadds[self.coadd_id].values - dfall_coadds['flux_%s'%(fqso)].values)**2
-            return np.sum(tmp*dfall_coadds['ivar_%s'%(fqso)].values)
+    def get_zvalues(self, qso_files):
+        """ Get ZWARNING, Z_ERR, Z"""
+	dict_z = {}
+        zwarning = self.get_names('ZWARNING')
+        zerr     = self.get_names('Z_ERR')
+        z        = self.get_names('Z')
+	for file, zwar, zerr, z in zip(qso_files, zwarning, zerr, z):
+	    dict_z[file]=(zwar, zerr, z)	
+        return dict_z
 
-
-
-
-        def calc_chisq(self, qso_files, dfall_coadds):
-            """Compute chisq and return a dict with files'name and chisq"""
-
-            chi_sq_all =[]
-            for _, fqso in enumerate(qso_files):
-                chis_sq = self.comp_chisq(fqso, dfall_coadds)
-                chi_sq_all.append(chis_sq/len(dfall_coadds.values))
-                    #careful: len(dfall_coadds.values) != len(individuals)
-            return dict(zip(qso_files, chi_sq_all))
-
-
-
-
-        def ftrim_chisq(self, zipchisq):
-            """Function to select observations that have trim_chisq < chisq"""
-
-            tmp_zipchisq = zipchisq.copy()
-            for files, chisq in zipchisq.items():
-                if chisq < self.trim_chisq:
-                    del tmp_zipchisq[files]
-                else: continue
-
-            return list(tmp_zipchisq)
 
 
 
@@ -499,21 +491,24 @@ class Qso_catalog(Ini_params):
 
 
 
+    def resize_arr(self, arr):
+	resize_str = np.array(arr)
+	resize_str.resize(self.max_str)
+	return resize_str
 
-    def master_fits(self, lpix, thid, qfiles):
-        max_str = max([len(i) for i in qfiles])
-        all_lfiles=[]
-        for i in qfiles:
-            resize_str =  np.array(i)
-            resize_str.resize(max_str)
-            all_lfiles.append(resize_str)
 
-        z_err = []; z_war = []; z = []
-        for thi, files in zip(thid, all_lfiles):
-            z_err.append([self.extra_info(i, thi, 'Z_ERR')    for i in files])
-            z_war.append([self.extra_info(i, thi, 'ZWARNING') for i in files])
-            z.append(    [self.extra_info(i, thi, 'Z')        for i in files])
 
+    def master_fits(self, lpix, thid, dict_z):
+	#fits colums should have the same lenght :/
+        self.max_str = max([len(i) for i in dict_z])
+        all_lfiles=[]; z_war = []; z_err = []; z = []
+	
+        for dicts in dict_z:
+            all_lfiles.append(self.resize_arr(dicts.keys()))
+	    z_war.append(self.resize_arr([val[0] for val in dicts.values()]))
+	    z_err.append(self.resize_arr([val[1] for val in dicts.values()]))
+	    z.append(self.resize_arr([val[2] for val in dicts.values()]))
+		
         data = {}
         data['healpix']   = np.array(lpix,            dtype='i4')
         data['thing_id']  = np.array(thid,            dtype='i4')
@@ -529,7 +524,6 @@ class Qso_catalog(Ini_params):
         fits.close()
 
 
-
     def plot_stats(self, size):
         """Collect all chisq and plot a histogram"""
 
@@ -541,11 +535,11 @@ class Qso_catalog(Ini_params):
             total_chisq.append(Chisq)
 	
         df = pd.concat(total_chisq) 
- 		
+ 	tot_spec = df['#number'].sum()
         if self.verbose:
             print("\n Statistics of chisq distribution")
             print (df[chisq_].describe())
-
+	
         bins  = 10
         range = (0,1)
 
@@ -569,19 +563,19 @@ class Qso_catalog(Ini_params):
                 print ('Install Bokeh for fun')
         else:
 	    dict={}
-	    for i in np.arange(1,17):
+	    for i in np.arange(1,19):
 		x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
 		dict[i] = np.array([np.log(j) if j!=0 else 0 for j in x ])
 	    final = pd.DataFrame(index =[i/10. for i in np.arange(10)], data=dict)
 	    print(final.sort(axis=1))
 	
-	    plt.figure()
+	    plt.figure(figsize = (18, 8))
 	    ax = plt.subplot(111)
-	    sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, 
+	    sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, fmt=".1f", 
 		linecolor='white', cmap="YlGnBu",  label='Total:%s'%(len(df)), ax=ax)
 	    plt.ylabel('% accepted per THING_ID')	
 	    plt.xlabel('Repeated THING_ID')  
-	    plt.title('Total Qsos:%s'%(len(df)))
+	    plt.title('Total Spec:%s,   Unique THING_ID:%s'%(tot_spec, len(df)))
 	    plt.legend(loc = 'best')
             plt.show(block=True)
 
