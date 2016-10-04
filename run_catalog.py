@@ -64,13 +64,11 @@ dict_z= comm.gather(Qsos.all_qfiles, root=0)
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
     if Qsos.write_hist and Qsos.show_plots:
-        Qsos.plot_stats(size)
         print ('... stats are on Chisq_dist.csv files')
-   
+	Qsos.plot_stats(size)  
+ 
     if Qsos.write_master: 
-	print('Writting master file')
 	Qsos.master_fits(np.hstack(lpix), np.hstack(thid), np.hstack(dict_z))
-
 
 
 
