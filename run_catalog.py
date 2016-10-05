@@ -27,7 +27,7 @@ if rank == 0:
     #df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
     Qsos    = Qso_catalog(df_fits, verbose = True)
 
-    Qsos.rep_thid    = 1
+    Qsos.rep_thid    = 4
     Qsos.write_master= True
     Qsos.write_ffits = True
     Qsos.show_plots  = False
@@ -57,18 +57,16 @@ split_pixel(chunk_pix, Qsos)
 comm.Barrier()
 
 if rank == 0: print ('Gathering info')
-lpix  = comm.gather(Qsos.all_lpix, root=0)
-thid  = comm.gather(Qsos.all_thid, root=0)
-dict_z= comm.gather(Qsos.all_qfiles, root=0)
+all_info  = comm.gather(Qsos.all_info, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
     if Qsos.write_hist and Qsos.show_plots:
         print ('... stats are on Chisq_dist.csv files')
-	Qsos.plot_stats(size)  
+        Qsos.plot_stats(size)
  
-    if Qsos.write_master: 
-	Qsos.master_fits(np.hstack(lpix), np.hstack(thid), np.hstack(dict_z))
+    if Qsos.write_master:
+        Qsos.master_fits(np.hstack(all_info)) #, np.hstack(thid), np.hstack(dict_z))
 
 
 

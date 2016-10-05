@@ -78,9 +78,9 @@ class Qso_catalog(Ini_params):
         self.verbose     = verbose
         self.df_qsos     = None         #Main DataFrame that contains all Qso info.
         self.chisq_dist  = []
-        self.all_lpix    = []
-        self.all_thid    = []
-        self.all_qfiles  = []
+        self.all_info    = []
+        #self.all_thid    = []
+        #self.all_qfiles  = []
         Ini_params.__init__(self)
 
 
@@ -262,12 +262,19 @@ class Qso_catalog(Ini_params):
         plates   = self.get_names('PLATE')
         mjds     = self.get_names('MJD')
         fiberids = self.get_names('FIBERID')
-        plate_nu = ['{}'.format(plate) for plate in plates]
+        z        = self.get_names('Z')
+        zerr     = self.get_names('Z_ERR')
+        zwarning = self.get_names('ZWARNING')
 
+        plate_nu = ['{}'.format(plate) for plate in plates]
         qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
 
-        #just in case we need to have the files stored
+        dict_info = {}
+        for p, m, f, z, zerr, zwar, qso in zip(plates, mjds, fiberids, z, zerr, zwarning, qso_files):
+            dict_info[qso] = (p, m,f, z, zerr, zwar)
+
+        #just in case we need and dont have the files stored
         if self.need_files:
             for plate, file in zip(plate_nu, qso_files):
                 if not os.path.isfile(self.dir_spec + file):
@@ -275,18 +282,9 @@ class Qso_catalog(Ini_params):
                         self.get_bnl_files(plate, file)
                     else:
                         self.get_web_files(file, self.passwd)
-        return qso_files
+        return qso_files, dict_info
 
 
-
-
-#    def get_zvalues(self, thing_id ='thing_id'):
-#	""" Get ZWARNING, Z_ERR, Z"""
-	
-#	zwarning = self.get_names('ZWARNING')
-#	zerr	 = self.get_names('Z_ERR')	
-#	z	 = self.get_names('Z')
-#	return (zwarning, zerr, z)
 
 
 
@@ -367,10 +365,10 @@ class Qso_catalog(Ini_params):
 
 
 
-    def cal_chisq(self, qso_files):
+
+    def cal_chisq(self, qso_files, dict_extra):
         dic_file  = {}
         dic_chisq = {}
-	dict_z    = self.get_zvalues(qso_files)
 
         for fqso in qso_files:
             df_file = read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam')
@@ -378,22 +376,10 @@ class Qso_catalog(Ini_params):
             if chisq > self.trim_chisq:
                 dic_file[fqso]  = df_file
                 dic_chisq[fqso] = chisq
-	    else:
-		del dict_z[fqso]
-	        if self.write_hist: self.write_stats_file(str(self.th_id) + ',' + str(fqso) + ', chisq: ' + str(chisq), 'bad')
-        return dic_file, dic_chisq, dict_z
-
-
-
-    def get_zvalues(self, qso_files):
-        """ Get ZWARNING, Z_ERR, Z"""
-	dict_z = {}
-        zwarning = self.get_names('ZWARNING')
-        zerr     = self.get_names('Z_ERR')
-        z        = self.get_names('Z')
-	for file, zwar, zerr, z in zip(qso_files, zwarning, zerr, z):
-	    dict_z[file]=(zwar, zerr, z)	
-        return dict_z
+            else:
+                del dict_extra[fqso]
+                if self.write_hist: self.write_stats_file(str(self.th_id) + ',' + str(fqso) + ', chisq: ' + str(chisq), 'bad')
+        return dic_file, dic_chisq, dict_extra
 
 
 
@@ -425,7 +411,6 @@ class Qso_catalog(Ini_params):
     def plot_chisq_dist(self, frac):
         """Save chisq for all spectra, and plot a histogram on the fly"""
 
-        #for i in zipchisq.values():
         self.chisq_dist.append(frac)
 
         plt.hist(self.chisq_dist, bins=10, range=(0.0, 1.0))
@@ -443,7 +428,7 @@ class Qso_catalog(Ini_params):
         self.write_stats = {'dist' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
         self.write_stats['bad'].write('#Spec with pure noise: Chisq<2 \n')
-	self.write_stats['bad'].write('#THING_ID, file, chisq \n')
+        self.write_stats['bad'].write('#THING_ID, file, chisq \n')
 
 
 
@@ -477,7 +462,7 @@ class Qso_catalog(Ini_params):
          fits.close()
 
          if self.verbose: print ('... Writing FITS file: %s'%(lpix))
-	
+
 
 
 
@@ -492,30 +477,35 @@ class Qso_catalog(Ini_params):
 
 
     def resize_arr(self, arr):
-	resize_str = np.array(arr)
-	resize_str.resize(self.max_str)
-	return resize_str
+        resize_str = np.array(arr)
+        resize_str.resize(self.max_str)
+        return resize_str
 
 
 
-    def master_fits(self, lpix, thid, dict_z):
-	#fits colums should have the same lenght :/
-        self.max_str = max([len(i) for i in dict_z])
-        all_lfiles=[]; z_war = []; z_err = []; z = []
-	
-        for dicts in dict_z:
-            all_lfiles.append(self.resize_arr(dicts.keys()))
-	    z_war.append(self.resize_arr([val[0] for val in dicts.values()]))
-	    z_err.append(self.resize_arr([val[1] for val in dicts.values()]))
-	    z.append(self.resize_arr([val[2] for val in dicts.values()]))
-		
+    def master_fits(self, all_info):
+        lpix  = []; thid  = []
+        plate = []; mjd   =[];  fiberid = []
+        zshift =[]; z_err = []; z_war   = []
+        for vals in all_info:
+            for tmp in vals[2].values():
+                pla, mj, fib, z, zerr, zwar  = tmp
+                lpix.append(vals[0])
+                thid.append(vals[1])
+                plate.append(pla); mjd.append(mj)
+                fiberid.append(fib)
+                zshift.append(z); z_err.append(zerr)
+                z_war.append(zwar)
+
         data = {}
-        data['healpix']   = np.array(lpix,            dtype='i4')
-        data['thing_id']  = np.array(thid,            dtype='i4')
-        data['files']     = np.array(all_lfiles,      dtype='S32')
-        data['z_warning'] = np.array(z_war,           dtype='i4')
-        data['z_err']     = np.array(z_err,           dtype='f4')
-        data['z']         = np.array(z,               dtype='f4')
+        data['HEALPIX']   = np.array(lpix,            dtype='i4')
+        data['THING_ID']  = np.array(thid,            dtype='i4')
+        data['PLATE']     = np.array(plate,           dtype='i4')
+        data['MJD']       = np.array(mjd,             dtype='i4')
+        data['FIBERID']   = np.array(fiberid,         dtype='i4')
+        data['ZWARNING']  = np.array(z_war,           dtype='i4')
+        data['Z_ERR']     = np.array(z_err,           dtype='f4')
+        data['Z']         = np.array(zshift,          dtype='f4')
 
         os.system("rm master_file.fits")
         if self.verbose: print (' ... Writing MASTER-FITS file')
@@ -527,19 +517,19 @@ class Qso_catalog(Ini_params):
     def plot_stats(self, size):
         """Collect all chisq and plot a histogram"""
 
-	chisq_ = 'chisq'
+        chisq_ = 'chisq'
         total_chisq = []
         for i in np.arange(size):
             Chisq     = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s', 
-			names=['THING_ID','#number',chisq_] ,header=None)
+            names=['THING_ID','#number',chisq_] ,header=None)
             total_chisq.append(Chisq)
-	
+
         df = pd.concat(total_chisq) 
- 	tot_spec = df['#number'].sum()
+        tot_spec = df['#number'].sum()
         if self.verbose:
             print("\n Statistics of chisq distribution")
             print (df[chisq_].describe())
-	
+
         bins  = 10
         range = (0,1)
 
@@ -562,21 +552,21 @@ class Qso_catalog(Ini_params):
             except:
                 print ('Install Bokeh for fun')
         else:
-	    dict={}
-	    for i in np.arange(1,19):
-		x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
-		dict[i] = np.array([np.log(j) if j!=0 else 0 for j in x ])
-	    final = pd.DataFrame(index =[i/10. for i in np.arange(10)], data=dict)
-	    print(final.sort(axis=1))
-	
-	    plt.figure(figsize = (18, 8))
-	    ax = plt.subplot(111)
-	    sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, fmt=".1f", 
-		linecolor='white', cmap="YlGnBu",  label='Total:%s'%(len(df)), ax=ax)
-	    plt.ylabel('% accepted per THING_ID')	
-	    plt.xlabel('Repeated THING_ID')  
-	    plt.title('Total Spec:%s,   Unique THING_ID:%s'%(tot_spec, len(df)))
-	    plt.legend(loc = 'best')
+            dict={}
+            for i in np.arange(1,19):
+                x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
+                dict[i] = np.array([j*100./len(df) if j!=0 else 0 for j in x ])
+            final = pd.DataFrame(index =[i/10. for i in np.arange(10)], data=dict)
+            print(final.sort(axis=1))
+
+            plt.figure(figsize = (18, 8))
+            ax = plt.subplot(111)
+            sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, fmt=".1f",
+            linecolor='white', cmap="YlGnBu",  label='Total:%s'%(len(df)), ax=ax)
+            plt.ylabel('Repeated THING_ID / Accepted THING_ID')
+            plt.xlabel('Repeated THING_ID')
+            plt.title('Total Spec:%s,   Unique THING_ID:%s'%(tot_spec, len(df)))
+            plt.legend(loc = 'best')
             plt.show(block=True)
 
 
@@ -585,5 +575,5 @@ class Qso_catalog(Ini_params):
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(8)
+    Qsos.plot_stats(1)
 
