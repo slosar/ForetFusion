@@ -44,8 +44,8 @@ class Ini_params():
         self.full_file   = 'spAll-v5_10_0.fits'
         self.Spall_files = 'SpAll_files.csv'
 
-        self.stats_file  = 'Chisq_dist'
-        self.stats_file3 = 'Chisq_bad'
+        self.stats_file  = 'chisq_dist/Chisq_dist'
+        self.stats_file3 = 'chisq_dist/Chisq_bad'
         self.suffix      = '_{}.csv'
 
         self.bit_boss    = [10,11,12,13,14,15,16,17,18,19,40,41,42,43,44]
@@ -484,7 +484,8 @@ class Qso_catalog(Ini_params):
 
 
     def master_fits(self, all_info):
-        lpix  = []; thid  = []
+	all_info = [j for vals in all_info for j in vals]
+	lpix  = []; thid  = []
         plate = []; mjd   =[];  fiberid = []
         zshift =[]; z_err = []; z_war   = []
         for vals in all_info:
@@ -527,7 +528,7 @@ class Qso_catalog(Ini_params):
         df = pd.concat(total_chisq) 
         tot_spec = df['#number'].sum()
         if self.verbose:
-            print("\n Statistics of chisq distribution")
+            print("\n Statistics of THING_ID distribution")
             print (df[chisq_].describe())
 
         bins  = 10
@@ -553,20 +554,32 @@ class Qso_catalog(Ini_params):
                 print ('Install Bokeh for fun')
         else:
             dict={}
-            for i in np.arange(1,19):
+	    label =[]
+	    low_val = -100
+	    index =[i/10. for i in np.arange(10)]
+	    #split by repeated thing_id
+            for i in np.arange(1, 19):
                 x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
-                dict[i] = np.array([j*100./len(df) if j!=0 else 0 for j in x ])
-            final = pd.DataFrame(index =[i/10. for i in np.arange(10)], data=dict)
-            print(final.sort(axis=1))
+		#change the background color
+                dict[i] = np.array([j*100./tot_spec if j!=0 else low_val for j in x ])
+		label.append([j*100./tot_spec if j!=0 else 0 for j in x ])
+            label = np.matrix(label).T
+	    final = pd.DataFrame(index=index, data=dict)
+            #print(final.sort(axis=1))
 
             plt.figure(figsize = (18, 8))
             ax = plt.subplot(111)
-            sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=True, fmt=".1f",
-            linecolor='white', cmap="YlGnBu",  label='Total:%s'%(len(df)), ax=ax)
-            plt.ylabel('Repeated THING_ID / Accepted THING_ID')
+            tmp =sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=label,  fmt=".1f",
+            linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
+	    cbar = tmp.collections[0].colorbar
+	    cbar.set_label('% of Specs', rotation=270)
+	    cbar.set_ticks([100])
+	    cbar.set_ticklabels(["100%"])
+            plt.ylabel('Accepted THING_ID / Repeated THING_ID')
             plt.xlabel('Repeated THING_ID')
-            plt.title('Total Spec:%s,   Unique THING_ID:%s'%(tot_spec, len(df)))
+            plt.title('Total Spec : %s,    Unique THING_ID : %s'%(tot_spec, len(df)))
             plt.legend(loc = 'best')
+	    plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
             plt.show(block=True)
 
 
@@ -575,5 +588,5 @@ class Qso_catalog(Ini_params):
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(1)
+    Qsos.plot_stats(8)
 
