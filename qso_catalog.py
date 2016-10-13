@@ -79,8 +79,6 @@ class Qso_catalog(Ini_params):
         self.df_qsos     = None         #Main DataFrame that contains all Qso info.
         self.chisq_dist  = []
         self.all_info    = []
-        #self.all_thid    = []
-        #self.all_qfiles  = []
         Ini_params.__init__(self)
 
 
@@ -164,7 +162,7 @@ class Qso_catalog(Ini_params):
         """Given a pixel, return the THING_ID and the number of times is repeated"""
 
         rep_thing_id = self.df_qsos.query('PIX == {}'.format(pix_id)).groupby('THING_ID').size()
-	
+
         if not rep_thing_id[rep_thing_id >= self.rep_thid].empty:
             uniqeid = dict(rep_thing_id[rep_thing_id >= self.rep_thid])
         else:
@@ -484,8 +482,8 @@ class Qso_catalog(Ini_params):
 
 
     def master_fits(self, all_info):
-	all_info = [j for vals in all_info for j in vals]
-	lpix  = []; thid  = []
+        all_info = [j for vals in all_info for j in vals]
+        lpix  = []; thid  = []
         plate = []; mjd   =[];  fiberid = []
         zshift =[]; z_err = []; z_war   = []
         for vals in all_info:
@@ -521,8 +519,8 @@ class Qso_catalog(Ini_params):
         chisq_ = 'chisq'
         total_chisq = []
         for i in np.arange(size):
-            Chisq     = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s', 
-            names=['THING_ID','#number',chisq_] ,header=None)
+            Chisq   = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s',
+            names   = ['THING_ID','#number',chisq_] ,header=None)
             total_chisq.append(Chisq)
 
         df = pd.concat(total_chisq) 
@@ -553,33 +551,33 @@ class Qso_catalog(Ini_params):
             except:
                 print ('Install Bokeh for fun')
         else:
-            dict={}
-	    label =[]
-	    low_val = -100
-	    index =[i/10. for i in np.arange(10)]
-	    #split by repeated thing_id
+            dict= {}
+            label = []
+            low_val = -100
+            index =[i/10. for i in np.arange(10)]
+            #split by repeated thing_id
             for i in np.arange(1, 19):
                 x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
-		#change the background color
-                dict[i] = np.array([j*100./tot_spec if j!=0 else low_val for j in x ])
-		label.append([j*100./tot_spec if j!=0 else 0 for j in x ])
+            #change the background color
+                dict[i] = np.array([j*100./tot_spec if j!=0 else low_val for j in x])
+            label.append([j*100./tot_spec if j!=0 else 0 for j in x])
             label = np.matrix(label).T
-	    final = pd.DataFrame(index=index, data=dict)
+            final = pd.DataFrame(index=index, data=dict)
             #print(final.sort(axis=1))
 
             plt.figure(figsize = (18, 8))
             ax = plt.subplot(111)
             tmp =sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=label,  fmt=".1f",
             linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
-	    cbar = tmp.collections[0].colorbar
-	    cbar.set_label('% of Specs', rotation=270)
-	    cbar.set_ticks([100])
-	    cbar.set_ticklabels(["100%"])
+            cbar = tmp.collections[0].colorbar
+            cbar.set_label('% of Specs', rotation=270)
+            cbar.set_ticks([100])
+            cbar.set_ticklabels(["100%"])
             plt.ylabel('Accepted THING_ID / Repeated THING_ID')
             plt.xlabel('Repeated THING_ID')
             plt.title('Total Spec : %s,    Unique THING_ID : %s'%(tot_spec, len(df)))
             plt.legend(loc = 'best')
-	    plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
+            plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
             plt.show(block=True)
 
 

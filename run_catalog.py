@@ -65,8 +65,6 @@ if rank == 0:
         print ('... stats are on Chisq_dist.csv files')
         Qsos.plot_stats(size)
  
-    if Qsos.write_master:
-        Qsos.master_fits(all_info) 
-
+    if Qsos.write_master: Qsos.master_fits(all_info)
 
 
