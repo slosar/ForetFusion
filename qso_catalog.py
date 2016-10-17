@@ -35,6 +35,7 @@ class Ini_params():
         self.write_hist  = False                          #Write chisq distribution files
         self.write_names = False                          #Write names of all spec.fits files used
         self.show_plots  = False                          #must be False when using mpi
+        self.need_files  = False                          #If files needed get them from bnl-cluster
         self.use_bokeh   = False                          #Playing with interactive plots
 
         self.dir_spec    = 'data/spectra/'
@@ -77,7 +78,6 @@ class Qso_catalog(Ini_params):
         self.df_fits     = df_fits
         self.verbose     = verbose
         self.df_qsos     = None         #Main DataFrame that contains all Qso info.
-        self.chisq_dist  = []
         self.all_info    = []
         Ini_params.__init__(self)
 
@@ -86,7 +86,6 @@ class Qso_catalog(Ini_params):
     def searching_quasars(self, data_column, mask_bit):
         """Filter quasars according to the bit array,
         return a Boolean array wherever the quasar is"""
-
         is_qso  =  lambda bit: ((self.df_fits[data_column] & 2**bit) > 0)
         all_qso =  map(is_qso, mask_bit)
         return reduce(lambda x, y: x | y, all_qso)
@@ -94,10 +93,8 @@ class Qso_catalog(Ini_params):
 
 
 
-
     def print_filter_qsos(self, df, text):
         """Print # of Quasars according to the filtering condtion"""
-
         for targ, bits in self.targets.items():
             print ("Quasars with {} condition in {} =".format(text, targ),
                    self.searching_quasars(targ, bits).sum())
@@ -112,27 +109,18 @@ class Qso_catalog(Ini_params):
         """Filter quasars given the condition"""
 
         if self.verbose: self.print_filter_qsos(self.df_fits, 'Bit')
-
-        # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
+            # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
         self.df_fits  = self.df_fits.query(condition)
 
-        if self.verbose: self.print_filter_qsos(self.df_fits, 'General')
 
-        # and satisfy the bit condition (is a quasar)
+        if self.verbose: self.print_filter_qsos(self.df_fits, 'General')
+            # and satisfy the bit condition (is a quasar)
         a =[]
         for targ, bits in self.targets.items():
             a.append(self.searching_quasars(targ, bits))
         self.df_qsos = self.df_fits[reduce(lambda x, y: x | y, a)].copy()
 
         if self.verbose: self.print_filter_qsos(self.df_qsos, 'Both')
-        return 0
-
-
-
-
-    def my_own_filter(self, condition):
-        """Add your own filter condition"""
-        self.df_qsos = self.df_fits.query(condition).copy()
         return 0
 
 
@@ -148,10 +136,10 @@ class Qso_catalog(Ini_params):
         unique_pixels  = self.df_qsos['PIX'].unique()
         print ('Unique pixels: ', len(unique_pixels))
 
-        #setting 'PIX' and 'THING_ID' as indices
+            #setting 'PIX' and 'THING_ID' as indices
         self.df_qsos = self.df_qsos.set_index(['PIX','THING_ID'], drop=False).drop('PIX', 1).sort_index()
-
         if self.verbose: print (self.df_qsos.head())
+
         return unique_pixels
 
 
@@ -180,65 +168,8 @@ class Qso_catalog(Ini_params):
         bnl_folder = os.path.join(self.dir_spec, plate)
 
         if self.verbose: print ('Getting file {} from the bnl'.format(file_name))
-        if not os.path.isdir(bnl_folder):
-            os.system('mkdir {}'.format(bnl_folder))
+        if not os.path.isdir(bnl_folder): os.system('mkdir {}'.format(bnl_folder))
         os.system('scp {0} {1}'.format(os.path.join(self.bnl_dir, file_name), bnl_folder))
-        return 0
-
-
-
-
-
-    def get_web_files(self, file_name, passwd):
-        """nasty hack to get files from sdss website, but will change it later,
-            only works with Python2"""
-
-        if self.verbose: print ('Getting file {} from the sdss web'.format(file_name))
-        url = os.path.join(self.sdss_url, file_name)
-        username = 'sdss'
-        password = '{}'.format(passwd)
-
-        # I have had to add a carriage return ('%s:%s\n'), but
-        # you may not have to.
-        b64login = b64encode('%s:%s' % (username, password))
-
-        br = mechanize.Browser()
-        br.set_handle_robots(False)
-
-        br.addheaders.append(
-          ('Authorization', 'Basic %s' % b64login )
-        )
-        br.open(url)
-        r = br.response()
-        data = r.read()
-
-        with open(os.path.join(self.dir_spec, file_name),'wb') as output:
-              output.write(data)
-
-        return 0
-
-
-
-
-
-    def ask_for_files(self, get_files= False):
-        """ If we don't have files in local directory, get them from either bnl
-            or sdss website"""
-
-        self.need_files= get_files
-
-        if get_files:
-            self.need_files = input('Get files from (bnl), (sdss): ')
-            self.passwd     = input('sdss passwd:') if self.need_files == 'sdss' else None
-
-            if not ('{0} == bnl | {0} == sdss'.format(self.need_files)):
-                os.sys.exit('** Need to type either bnl or sdss')
-            if self.need_files == 'sdss':
-                try:
-                    import mechanize
-                    from base64 import b64encode
-                except:
-                    os.sys.exit("Install mechanize to get files")
         return 0
 
 
@@ -256,30 +187,22 @@ class Qso_catalog(Ini_params):
             if we dont have the files, get them."""
 
         self.th_id        = thing_id
+        names_files = ['PLATE', 'MJD', 'FIBERID', 'Z', 'Z_ERR', 'ZWARNING']
 
-        plates   = self.get_names('PLATE')
-        mjds     = self.get_names('MJD')
-        fiberids = self.get_names('FIBERID')
-        z        = self.get_names('Z')
-        zerr     = self.get_names('Z_ERR')
-        zwarning = self.get_names('ZWARNING')
-
-        plate_nu = ['{}'.format(plate) for plate in plates]
+        plates, mjds, fiberids, z, zerr, zwarning = list(map(self.get_names, names_files))
         qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
                         for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
-
+exit: use the dict always
         dict_info = {}
         for p, m, f, z, zerr, zwar, qso in zip(plates, mjds, fiberids, z, zerr, zwarning, qso_files):
             dict_info[qso] = (p, m,f, z, zerr, zwar)
 
-        #just in case we need and dont have the files stored
+        #just in case we need and dont have the files stored, get them from the bnl-cluster
         if self.need_files:
-            for plate, file in zip(plate_nu, qso_files):
-                if not os.path.isfile(self.dir_spec + file):
-                    if self.passwd is None:
-                        self.get_bnl_files(plate, file)
-                    else:
-                        self.get_web_files(file, self.passwd)
+            plates = list(map(str, plates))
+            for plate, file in zip(plates, qso_files):
+                if not os.path.isfile(self.dir_spec + file): self.get_bnl_files(plate, file)
+
         return qso_files, dict_info
 
 
@@ -292,7 +215,6 @@ class Qso_catalog(Ini_params):
         so we can get them later from NERSC """
 
         fnames = 'fnames'
-
         print ('... Printing file-names in {}'.format(self.Spall_files))
 
         self.df_qsos[fnames] =  self.df_qsos['PLATE'].astype(str) + '/spec-' + \
@@ -303,7 +225,7 @@ class Qso_catalog(Ini_params):
              for name in (self.dir_v5_10 + self.df_qsos[fnames]).values:
                  f.write(name + '\n')
 
-        return self.df_qsos[fnames]
+        return 0
 
 
 
@@ -376,7 +298,7 @@ class Qso_catalog(Ini_params):
                 dic_chisq[fqso] = chisq
             else:
                 del dict_extra[fqso]
-                if self.write_hist: self.write_stats_file(str(self.th_id) + ',' + str(fqso) + ', chisq: ' + str(chisq), 'bad')
+                if self.write_hist: self.write_stats_file(self.th_id, fqso, chisq, name='bad')
         return dic_file, dic_chisq, dict_extra
 
 
@@ -406,25 +328,11 @@ class Qso_catalog(Ini_params):
 
 
 
-    def plot_chisq_dist(self, frac):
-        """Save chisq for all spectra, and plot a histogram on the fly"""
-
-        self.chisq_dist.append(frac)
-
-        plt.hist(self.chisq_dist, bins=10, range=(0.0, 1.0))
-        plt.ylabel('#')
-        plt.xlabel('Fraction Chisq')
-        plt.title('Chisq Histogram')
-        plt.show(block=True)
-        #plt.savefig('chisq.pdf')
-        return 0
-
-
-
     def write_stats_open(self, rank):
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
         self.write_stats = {'dist' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
+        self.write_stats['dist'].write('#THING_ID, #specs, Accepted fraction \n')
         self.write_stats['bad'].write('#Spec with pure noise: Chisq<2 \n')
         self.write_stats['bad'].write('#THING_ID, file, chisq \n')
 
@@ -437,9 +345,9 @@ class Qso_catalog(Ini_params):
 
 
 
-    def write_stats_file(self, frac, name):
+    def write_stats_file(self, *output, name= None):
         """Write chisq"""
-        self.write_stats[name].write(str(frac) + '\n')
+        self.write_stats[name].write('\t'.join(map(str, output)) + '\n')
         self.write_stats[name].flush()
 
 
@@ -520,7 +428,7 @@ class Qso_catalog(Ini_params):
         total_chisq = []
         for i in np.arange(size):
             Chisq   = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s',
-            names   = ['THING_ID','#number',chisq_] ,header=None)
+            names   = ['THING_ID','#number',chisq_] ,header=None, skiprows=1 )
             total_chisq.append(Chisq)
 
         df = pd.concat(total_chisq) 
@@ -558,9 +466,10 @@ class Qso_catalog(Ini_params):
             #split by repeated thing_id
             for i in np.arange(1, 19):
                 x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
-            #change the background color
                 dict[i] = np.array([j*100./tot_spec if j!=0 else low_val for j in x])
-            label.append([j*100./tot_spec if j!=0 else 0 for j in x])
+                #change the background color
+                label.append([j*100./tot_spec if j!=0 else 0 for j in x])
+
             label = np.matrix(label).T
             final = pd.DataFrame(index=index, data=dict)
             #print(final.sort(axis=1))
@@ -577,7 +486,7 @@ class Qso_catalog(Ini_params):
             plt.xlabel('Repeated THING_ID')
             plt.title('Total Spec : %s,    Unique THING_ID : %s'%(tot_spec, len(df)))
             plt.legend(loc = 'best')
-            plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
+            #plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
             plt.show(block=True)
 
 
@@ -586,5 +495,5 @@ class Qso_catalog(Ini_params):
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(8)
+    Qsos.plot_stats(1)
 

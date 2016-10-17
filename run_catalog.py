@@ -33,11 +33,11 @@ if rank == 0:
     Qsos.show_plots  = False
     Qsos.write_names = False
     Qsos.write_hist  = True
+    Qsos.need_files  = True
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
-    Qsos.ask_for_files(get_files= False)
-    #print (Qsos.df_qsos.query('PIX == 6219 & (THING_ID == 77964771)'))
+    #print (Qsos.df_qsos.query('PIX == 6219 & THING_ID == 77964771'))
 
     if Qsos.write_names: Qsos.write_file_names()
    
@@ -61,7 +61,7 @@ all_info  = comm.gather(Qsos.all_info, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist and Qsos.show_plots:
+    if Qsos.write_hist: # and Qsos.show_plots:
         print ('... stats are on Chisq_dist.csv files')
         Qsos.plot_stats(size)
  
