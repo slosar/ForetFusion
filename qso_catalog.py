@@ -300,7 +300,7 @@ class Qso_catalog(Ini_params):
                 dict_chisq[fqso] = chisq
             else:
                 del dict_qso[fqso]
-                if self.write_hist: self.write_stats_file(self.th_id, fqso, chisq, name='bad')
+                if self.write_hist: self.write_stats_file('bad', self.th_id, fqso, chisq)
         return dict_file, dict_chisq, dict_qso
 
 
@@ -347,7 +347,7 @@ class Qso_catalog(Ini_params):
 
 
 
-    def write_stats_file(self, *output, name= None):
+    def write_stats_file(self, name, *output):
         """Write chisq"""
         self.write_stats[name].write('\t'.join(map(str, output)) + '\n')
         self.write_stats[name].flush()
@@ -465,11 +465,11 @@ class Qso_catalog(Ini_params):
                 print ('Install Bokeh for fun')
         else:
 
-            label = []
+            top_index = []
             index =[np.arange(0,19)]
             dict = defaultdict(list)
             for i in np.arange(1,19):
-                label.append(df.query('specs == %s'%(i)).specs.sum())
+                top_index.append(df.query('specs == %s'%(i)).specs.sum())
                 for j in np.arange(0, 19):
                     if j ==0 :
                         dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).specs.sum())
@@ -482,7 +482,7 @@ class Qso_catalog(Ini_params):
             if True:
                 plt.figure(figsize = (18, 9))
                 ax = plt.subplot(111)
-                tmp =sns.heatmap(final.sort(ascending=False), linewidths=0.5, annot=True, #  fmt=".1f",
+                tmp =sns.heatmap(final.sort(ascending=False), linewidths=0.5, annot=True,  fmt="4d",
                 linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
                 cbar = tmp.collections[0].colorbar
                 cbar.set_label('% of Specs', rotation=270)
@@ -495,7 +495,7 @@ class Qso_catalog(Ini_params):
                 ax2 = ax.twiny()
                 ax2.set_xlim(ax.get_xlim())
                 ax2.set_xticks([i for i in np.arange(18)])
-                ax2.set_xticklabels(label)
+                ax2.set_xticklabels(top_index)
                 #plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
                 plt.show(block=True)
 
