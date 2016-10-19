@@ -471,18 +471,21 @@ class Qso_catalog(Ini_params):
             for i in np.arange(1,19):
                 top_index.append(df.query('specs == %s'%(i)).specs.sum())
                 for j in np.arange(0, 19):
-                    if j ==0 :
-                        dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).specs.sum())
+                    if i<= j+1:
+                        if j ==0 :
+                            dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).specs.sum())
+                        else:
+                            dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).accepted.sum())
                     else:
-                        dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).accepted.sum())
-
+                        dict[i].append(0)
 
             final = pd.DataFrame(index=index, data=dict)
+            labels = final.sort(ascending=False).as_matrix()
 
             if True:
                 plt.figure(figsize = (18, 9))
                 ax = plt.subplot(111)
-                tmp =sns.heatmap(final.sort(ascending=False), linewidths=0.5, annot=True,  fmt="4d",
+                tmp =sns.heatmap(final.sort(ascending=False).replace(0,-100), linewidths=0.5, annot=labels,  fmt="4d",
                 linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
                 cbar = tmp.collections[0].colorbar
                 cbar.set_label('% of Specs', rotation=270)
