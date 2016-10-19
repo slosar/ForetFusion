@@ -19,19 +19,19 @@ def split_pixel(pixel, Qsos):
         result = []
 
         for th_id in thingid_repeat.keys():
-            qso_files, dict_info = Qsos.get_files(thing_id = th_id)
-            dic_file, dic_chisq, dict_info = Qsos.cal_chisq(qso_files, dict_info)
+            dict_qso = Qsos.get_files(thing_id = th_id)
+            old_qsos = len(list(dict_qso.keys()))
+            dict_file, dict_chisq, dict_qso = Qsos.cal_chisq(dict_qso)
 
-            frac = len(dic_file)*1./len(qso_files)
-            if Qsos.write_hist: Qsos.write_stats_file(th_id, len(qso_files), frac, name='dist')
+            len_files = len(list(dict_qso.keys()))
+            if Qsos.write_hist:   Qsos.write_stats_file(th_id, old_qsos, len_files, name='dist')
 
+            if len_files == 0: continue
+            dfall_qsos = Qsos.coadds(dict_file)
 
-            if frac == 0: continue
-            dfall_qsos = Qsos.coadds(dic_file)
-
-            if Qsos.write_ffits:   result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id, Qsos.or_mask_id]])
-            if Qsos.write_master:  Qsos.all_info.append((lpix, th_id, dict_info))
-            if Qsos.show_plots:    Qsos.plot_coadds(dfall_qsos, dic_chisq)
+            if Qsos.write_ffits:  result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id, Qsos.or_mask_id]])
+            if Qsos.write_master: Qsos.all_info.append((lpix, th_id, dict_qso))
+            if Qsos.show_plots:   Qsos.plot_coadds(dfall_qsos, dict_chisq)
 
         if Qsos.write_ffits and (len(result) !=0): Qsos.write_fits(result, lpix)
 

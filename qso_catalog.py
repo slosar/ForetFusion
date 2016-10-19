@@ -4,6 +4,7 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from get_files import *
 from functools import reduce
+from collections import defaultdict
 import seaborn as sns
 import fitsio
 
@@ -188,14 +189,13 @@ class Qso_catalog(Ini_params):
 
         self.th_id        = thing_id
         names_files = ['PLATE', 'MJD', 'FIBERID', 'Z', 'Z_ERR', 'ZWARNING']
-
         plates, mjds, fiberids, z, zerr, zwarning = list(map(self.get_names, names_files))
-        qso_files= ['{0}/spec-{0}-{1}-{2}.fits'.format(plate, mjd, str(fiberid).zfill(4))
-                        for plate, mjd, fiberid in zip(plates, mjds, fiberids)]
-exit: use the dict always
-        dict_info = {}
-        for p, m, f, z, zerr, zwar, qso in zip(plates, mjds, fiberids, z, zerr, zwarning, qso_files):
-            dict_info[qso] = (p, m,f, z, zerr, zwar)
+        name_use  = list(zip(plates, mjds, fiberids, z, zerr, zwarning))
+
+        lam_qso   = lambda p,m,f: '{0}/spec-{0}-{1}-{2}.fits'.format(p, m, str(f).zfill(4))
+        qso_files = list(map(lam_qso, plates, mjds, fiberids))
+
+        dict_qso = dict(zip(qso_files, name_use))
 
         #just in case we need and dont have the files stored, get them from the bnl-cluster
         if self.need_files:
@@ -203,7 +203,7 @@ exit: use the dict always
             for plate, file in zip(plates, qso_files):
                 if not os.path.isfile(self.dir_spec + file): self.get_bnl_files(plate, file)
 
-        return qso_files, dict_info
+        return dict_qso
 
 
 
@@ -248,7 +248,7 @@ exit: use the dict always
 
 
 
-    def coadds(self, dic_file):
+    def coadds(self, dict_file):
         """ Add coadd, and_mask and or_mask columns for a given THING_ID """
 
         self.coadd_id     = 'coadd_%s'%(self.th_id)
@@ -258,21 +258,21 @@ exit: use the dict always
         self.or_mask_id   = 'or_mask_%s'%(self.th_id)
 
 
-        dfall_coadds  = self.stack_them(dic_file)
+        dfall_coadds  = self.stack_them(dict_file)
         dfall_coadds[self.flux_ivar_id] = 0
         dfall_coadds[self.ivar_id]      = 0
 
-        for _, fqso in enumerate(dic_file.keys()):
+        for _, fqso in enumerate(dict_file.keys()):
             flux = dfall_coadds['flux_%s'%(fqso)]
             if self.run_sky: flux += dfall_coadds['sky_%s'%(fqso)]
-            dfall_coadds[self.flux_ivar_id]    += ( flux  )*dfall_coadds['ivar_%s'%(fqso)]
+            dfall_coadds[self.flux_ivar_id]    += (flux)*dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds[self.ivar_id]         += dfall_coadds['ivar_%s'%(fqso)]
             dfall_coadds['or_mask_%s'%(fqso)]   = pd.DataFrame(dfall_coadds['or_mask_%s'%(fqso)], dtype='int')
             dfall_coadds['and_mask_%s'%(fqso)]  = pd.DataFrame(dfall_coadds['and_mask_%s'%(fqso)], dtype='int')
 
 
-        dfall_coadds[self.and_mask_id] = (reduce(lambda x, y: x & y, [dfall_coadds['and_mask_%s'%(i)] for i in dic_file.keys()]))
-        dfall_coadds[self.or_mask_id]  = (reduce(lambda x, y: x | y, [dfall_coadds['or_mask_%s'%(i)]  for i in dic_file.keys()]))
+        dfall_coadds[self.and_mask_id] = (reduce(lambda x, y: x & y, [dfall_coadds['and_mask_%s'%(i)] for i in dict_file.keys()]))
+        dfall_coadds[self.or_mask_id]  = (reduce(lambda x, y: x | y, [dfall_coadds['or_mask_%s'%(i)]  for i in dict_file.keys()]))
         dfall_coadds[self.coadd_id]    = dfall_coadds[self.flux_ivar_id] / dfall_coadds[self.ivar_id]
 
         dfall_coadds = dfall_coadds.fillna(0).copy()
@@ -286,20 +286,22 @@ exit: use the dict always
 
 
 
-    def cal_chisq(self, qso_files, dict_extra):
-        dic_file  = {}
-        dic_chisq = {}
+    def cal_chisq(self, dict_qso):
+        """Check whether the chisq -with respect to zero flux- is more than 2,
+         otherwise reject that observation"""
+        dict_file  = {}
+        dict_chisq = {}
 
-        for fqso in qso_files:
+        for fqso in list(dict_qso.keys()):
             df_file = read_fits(self.dir_spec , fqso, self.spec_cols).set_index('loglam')
             chisq   = self.comp_chisq(df_file)
             if chisq > self.trim_chisq:
-                dic_file[fqso]  = df_file
-                dic_chisq[fqso] = chisq
+                dict_file[fqso]  = df_file
+                dict_chisq[fqso] = chisq
             else:
-                del dict_extra[fqso]
+                del dict_qso[fqso]
                 if self.write_hist: self.write_stats_file(self.th_id, fqso, chisq, name='bad')
-        return dic_file, dic_chisq, dict_extra
+        return dict_file, dict_chisq, dict_qso
 
 
 
@@ -332,9 +334,9 @@ exit: use the dict always
         """Write all chisq and trim after eliminating trim_chisq > chisq"""
         self.write_stats = {'dist' : open(self.stats_file  + self.suffix.format(rank), 'w'),
                             'bad' : open(self.stats_file3 + self.suffix.format(rank), 'w')}
-        self.write_stats['dist'].write('#THING_ID, #specs, Accepted fraction \n')
-        self.write_stats['bad'].write('#Spec with pure noise: Chisq<2 \n')
-        self.write_stats['bad'].write('#THING_ID, file, chisq \n')
+        self.write_stats['dist'].write('THING_ID, specs, accepted \n')
+        self.write_stats['bad'].write('Spec with pure noise: Chisq<2 \n')
+        self.write_stats['bad'].write('THING_ID, file, chisq \n')
 
 
 
@@ -421,6 +423,9 @@ exit: use the dict always
         fits.close()
 
 
+
+
+
     def plot_stats(self, size):
         """Collect all chisq and plot a histogram"""
 
@@ -428,14 +433,14 @@ exit: use the dict always
         total_chisq = []
         for i in np.arange(size):
             Chisq   = pd.read_csv(self.stats_file  + self.suffix.format(i), sep='\s',
-            names   = ['THING_ID','#number',chisq_] ,header=None, skiprows=1 )
+            names   = ['THING_ID','specs', 'accepted'], skiprows=1 )
             total_chisq.append(Chisq)
 
         df = pd.concat(total_chisq) 
-        tot_spec = df['#number'].sum()
-        if self.verbose:
-            print("\n Statistics of THING_ID distribution")
-            print (df[chisq_].describe())
+        tot_spec = df['specs'].sum()
+        #if self.verbose:
+        #    print("\n Statistics of THING_ID distribution")
+        #    print (df[chisq_].describe())
 
         bins  = 10
         range = (0,1)
@@ -459,35 +464,40 @@ exit: use the dict always
             except:
                 print ('Install Bokeh for fun')
         else:
-            dict= {}
+
             label = []
-            low_val = -100
-            index =[i/10. for i in np.arange(10)]
-            #split by repeated thing_id
-            for i in np.arange(1, 19):
-                x = np.array(np.histogram(df[df['#number']==i][chisq_].values, range=[0,1], bins=10)[0])
-                dict[i] = np.array([j*100./tot_spec if j!=0 else low_val for j in x])
-                #change the background color
-                label.append([j*100./tot_spec if j!=0 else 0 for j in x])
+            index =[np.arange(0,19)]
+            dict = defaultdict(list)
+            for i in np.arange(1,19):
+                label.append(df.query('specs == %s'%(i)).specs.sum())
+                for j in np.arange(0, 19):
+                    if j ==0 :
+                        dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).specs.sum())
+                    else:
+                        dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).accepted.sum())
 
-            label = np.matrix(label).T
+
             final = pd.DataFrame(index=index, data=dict)
-            #print(final.sort(axis=1))
 
-            plt.figure(figsize = (18, 8))
-            ax = plt.subplot(111)
-            tmp =sns.heatmap(final.sort(axis=1), linewidths=0.5, annot=label,  fmt=".1f",
-            linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
-            cbar = tmp.collections[0].colorbar
-            cbar.set_label('% of Specs', rotation=270)
-            cbar.set_ticks([100])
-            cbar.set_ticklabels(["100%"])
-            plt.ylabel('Accepted THING_ID / Repeated THING_ID')
-            plt.xlabel('Repeated THING_ID')
-            plt.title('Total Spec : %s,    Unique THING_ID : %s'%(tot_spec, len(df)))
-            plt.legend(loc = 'best')
-            #plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
-            plt.show(block=True)
+            if True:
+                plt.figure(figsize = (18, 9))
+                ax = plt.subplot(111)
+                tmp =sns.heatmap(final.sort(ascending=False), linewidths=0.5, annot=True, #  fmt=".1f",
+                linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
+                cbar = tmp.collections[0].colorbar
+                cbar.set_label('% of Specs', rotation=270)
+                cbar.set_ticks([100])
+                cbar.set_ticklabels(["100%"])
+                plt.ylabel('Accepted THING_ID')
+                plt.xlabel('Number of THING_ID')
+                plt.title('Total Specs : %s,    Unique THING_ID : %s'%(tot_spec, len(df)), y=1.08)
+                plt.legend(loc = 'best')
+                ax2 = ax.twiny()
+                ax2.set_xlim(ax.get_xlim())
+                ax2.set_xticks([i for i in np.arange(18)])
+                ax2.set_xticklabels(label)
+                #plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
+                plt.show(block=True)
 
 
 
