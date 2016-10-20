@@ -33,7 +33,7 @@ if rank == 0:
     Qsos.show_plots  = False
     Qsos.write_names = False
     Qsos.write_hist  = True
-    Qsos.need_files  = True
+    Qsos.need_files  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
@@ -61,7 +61,7 @@ all_info  = comm.gather(Qsos.all_info, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist: # and Qsos.show_plots:
+    if Qsos.write_hist and Qsos.show_plots:
         print ('... stats are on Chisq_dist.csv files')
         Qsos.plot_stats(size)
  

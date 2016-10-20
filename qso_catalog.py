@@ -464,18 +464,20 @@ class Qso_catalog(Ini_params):
             except:
                 print ('Install Bokeh for fun')
         else:
-
+	    #df['counting'] = df['accepted'].replace(0, df['specs'])
+	    #df['rejected'] = df['specs'] - df['accepted'] 
             top_index = []
             index =[np.arange(0,19)]
             dict = defaultdict(list)
             for i in np.arange(1,19):
-                top_index.append(df.query('specs == %s'%(i)).specs.sum())
+                top_index.append('%2.f'%(df.query('specs == %s'%(i)).accepted.sum()))
                 for j in np.arange(0, 19):
-                    if i<= j+1:
-                        if j ==0 :
-                            dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).specs.sum())
-                        else:
-                            dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).accepted.sum())
+                    if j<= i:
+                        #if j ==0 :
+                        #    dict[i].append(df.query('specs == %s'%(i)).rejected.sum())
+                        #else:
+                        #dict[i].append(df.query('specs == %s and accepted == %s'%(i, j)).accepted.sum())
+			dict[i].append(len(df.query('specs == %s and accepted == %s'%(i, j))))
                     else:
                         dict[i].append(0)
 
@@ -488,17 +490,18 @@ class Qso_catalog(Ini_params):
                 tmp =sns.heatmap(final.sort(ascending=False).replace(0,-100), linewidths=0.5, annot=labels,  fmt="4d",
                 linecolor='white', cmap="YlGnBu",  vmax= 100, ax=ax)
                 cbar = tmp.collections[0].colorbar
-                cbar.set_label('% of Specs', rotation=270)
+                cbar.set_label('# of THING_ID', rotation=270)
                 cbar.set_ticks([100])
                 cbar.set_ticklabels(["100%"])
-                plt.ylabel('Accepted THING_ID')
-                plt.xlabel('Number of THING_ID')
+                plt.ylabel('# Accepted specs per THING_ID')
+                plt.xlabel('# Specs per THING_ID')
                 plt.title('Total Specs : %s,    Unique THING_ID : %s'%(tot_spec, len(df)), y=1.08)
                 plt.legend(loc = 'best')
                 ax2 = ax.twiny()
                 ax2.set_xlim(ax.get_xlim())
                 ax2.set_xticks([i for i in np.arange(18)])
                 ax2.set_xticklabels(top_index)
+		plt.xlabel('Accepted Specs')
                 #plt.savefig('/gpfs01/astro/www/jvazquez/forest/File_dist.pdf')
                 plt.show(block=True)
 
@@ -508,5 +511,5 @@ class Qso_catalog(Ini_params):
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(1)
+    Qsos.plot_stats(8)
 
