@@ -29,9 +29,10 @@ def split_pixel(pixel, Qsos):
             if len_files == 0: continue
             dfall_qsos = Qsos.coadds(dict_file)
 
-            if Qsos.write_ffits:  result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id, Qsos.or_mask_id]])
-            if Qsos.write_master: Qsos.all_info.append((lpix, th_id, dict_qso))
-            if Qsos.show_plots:   Qsos.plot_coadds(dfall_qsos, dict_chisq)
+            if Qsos.write_ffits:  result.append(dfall_qsos)
+            if Qsos.show_plots:   Qsos.plot_coadds(dict_chisq)
+            if Qsos.write_master:
+                for info in dict_qso.values(): Qsos.all_info.append((lpix, th_id, info))
 
-        if Qsos.write_ffits and (len(result) !=0): Qsos.write_fits(result, lpix)
-
+        if Qsos.write_ffits and not result: Qsos.write_fits(result, lpix)
+    return 0

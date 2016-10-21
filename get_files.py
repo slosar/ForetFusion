@@ -49,6 +49,7 @@ if False:
         """nasty hack to get files from sdss website, but will change it later,
             only works with Python2"""
 
+        self.sdss_url    = 'https://data.sdss.org/sas/ebosswork/eboss/spectro/redux/v5_10_0/spectra/'
         if self.verbose: print ('Getting file {} from the sdss web'.format(file_name))
         url = os.path.join(self.sdss_url, file_name)
         username = 'sdss'
