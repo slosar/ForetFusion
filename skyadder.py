@@ -53,7 +53,7 @@ for iter in range(Nit):
 		current[ndx]+=civar*tmp*(csky-unwanted[ndx])
                 currentw[ndx]+=civar*tmp**2
                 nsp+=1
-		
+        print current		
         current/=currentw
 	if False:
 	   plt.plot(current)
@@ -65,7 +65,7 @@ for iter in range(Nit):
             meansky=current
         else:
             contr[varcount]=current
-	if True:
+	if False:
            plt.plot(current)
            plt.ylim([-50, 50])
            plt.show()
