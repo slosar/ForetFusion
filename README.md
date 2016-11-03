@@ -108,7 +108,8 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist.jpg)
 
-![](http://www.cosmo.bnl.gov/www/jvazquez/forest/File_dist.jpg)
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist_chis05.jpg)
+
 
 
 ### Additional info may be found [here](http://www.cosmo.bnl.gov/www/jvazquez/forest/)
