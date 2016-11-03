@@ -16,6 +16,8 @@ Python libraries you may need: fitsio, pandas, mpi4py, healpy. I am using Python
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/Filters.jpg )
 
+### Select Quasars
+
 * Filter the Quasars that satisfy the the [bit condition](http://www.sdss.org/dr12/algorithms/bitmasks/#BOSSTILE_STATUS): 
 
     > ('Quasars with Bit condition in EBOSS_TARGET1 =', 201742)
@@ -45,16 +47,20 @@ Python libraries you may need: fitsio, pandas, mpi4py, healpy. I am using Python
     
     > ('Quasars with Both condition in BOSS_TARGET1 = ' , 285071)
     
-    > Total qsos = 484089
+    > **Total qsos = 484089**
 
-* The names of the files that contain the 484089 spectra corresponding to these quasars are located at [SpAll_files.csv](www.cosmo.bnl.gov/www/jvazquez/forest/SpAll_files.csv), use 
-    **Qsos.write_names = True**
+* The names of the files that contain the 484089 spectra corresponding to these quasars are located at [SpAll_files.csv](www.cosmo.bnl.gov/www/jvazquez/forest/SpAll_files.csv), (use 
+    **Qsos.write_names = True**)
+
+### Compute healpix
 
 * Once filtered and selected the Qsos, we compute the healpix given RA and DEC. Then group quasar observations given by healpix.
 i.e. 
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID.jpg )
 
+
+### Coadd spectra with same THING_ID
 
 * Withing a healpix, finds the repeated objects with the same THING_ID (i.e. **self.rep_thid = 4**), Coadd them (average ivar*flux.) and compute the chisq with respect to zero flux:
 
@@ -75,6 +81,7 @@ i.e.
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg)
 
 
+### Write Fits files for each healpix.
 
 * Write a file for each healpix that contains THING_ID's. For each THING_ID coadd 'flux'. For example, considering the Healpix 24985, there are three different THING_ID with their corresponding coadd, and_mask and or_mask:
 	
@@ -82,9 +89,23 @@ i.e.
 
 
 
+### Write Master file
+
+* The master file contains the information from all accepted spectra:
+ healpix, thing_id, mjd, plate, fiberid, etc.. 
+
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/master.jpg)
 
 
+### THING_ID distribution
+
+* The figure shows the distribution of THING_ID. The x-axis displays the number
+ spectra per THING_ID, while the y-axis the number of Accepted spectra within a THING_ID. Blue rectangles represent the total of THING_IDs, and the top label the total of spectra. 
+ For example, let's consider the case with #Specs per THING_ID = 18.
+ there are two THING_IDs with 18 spectra, one has only 16 accepted and the other has all accepted (18), given a total of 34 accepted spectra.
+ 
+
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist.jpg)
 
 
-
-
+### Additional info may be found [here](http://www.cosmo.bnl.gov/www/jvazquez/forest/)
