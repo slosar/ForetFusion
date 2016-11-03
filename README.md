@@ -108,6 +108,8 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist.jpg)
 
+#### with Chisq > 0.5
+
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist_chis05.jpg)
 
 
