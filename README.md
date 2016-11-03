@@ -77,8 +77,9 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_2.jpg)
 
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_3.jpg)
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg)
+
 
 
 ### Write Fits files for each healpix.
@@ -107,5 +108,7 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist.jpg)
 
+
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/dist_chis05.jpg)
 
 ### Additional info may be found [here](http://www.cosmo.bnl.gov/www/jvazquez/forest/)
