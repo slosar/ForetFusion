@@ -71,28 +71,20 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_2.jpg)
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_3.jpg)
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg)
 
 
 
-* Write a file for each healpix that contains THING_ID's and for each one the coadd 'flux','loglam':
+* Write a file for each healpix that contains THING_ID's. For each THING_ID coadd 'flux'. For example, considering the Healpix 24985, there are three different THING_ID with their corresponding coadd, and_mask and or_mask:
 	
-		HEALPIX: THING_ID_1	:	'flux_1','loglam_1'  .fits/.csv
-				 THING_ID_2	:	'flux_2','loglam_2'  .fits/.csv
-				 THING_ID_3	:	'flux_3','loglam_3'  .fits/.csv
-				 	.
-
-* It can show some coadd and/or chis-distribution plots on the fly **Qsos.show_plots = True**.
-* At the end shows a distribution of chisq taking into account all the Quasars and after eliminating
-those with chisq >= 4. 
-
-The plot below shows the distribution of chisq considering only the quasars with repeated THING_ID, in this case for testing, with more than 4 times.
-
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/chisq_4.jpg )
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/healpix.jpg)
 
 
-* Last, there are some very bad observations where most of the specs have a chisq>4 compared to the coadd (and I'm not so sure what to do in these cases)
 
-![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg )
+
+
+
+
+
+
