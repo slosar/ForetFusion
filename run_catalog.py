@@ -27,13 +27,13 @@ if rank == 0:
     #df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
     Qsos    = Qso_catalog(df_fits, verbose = True)
 
-    Qsos.rep_thid    = 4
+    Qsos.rep_thid    = 1
     Qsos.write_master= True
-    Qsos.write_ffits = False
-    Qsos.show_plots  = True
+    Qsos.write_ffits = True
+    Qsos.show_plots  = False
     Qsos.write_names = False
     Qsos.write_hist  = True
-    Qsos.need_files  = True
+    Qsos.need_files  = False
 
     Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
@@ -60,7 +60,7 @@ all_info  = comm.gather(Qsos.all_info, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist: # and Qsos.show_plots:
+    if Qsos.write_hist and Qsos.show_plots:
         Qsos.plot_stats(size)
     if Qsos.write_master: Qsos.master_fits(all_info)
 

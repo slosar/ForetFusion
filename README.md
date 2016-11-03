@@ -16,7 +16,7 @@ Python libraries you may need: fitsio, pandas, mpi4py, healpy. I am using Python
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/Filters.jpg )
 
-### Select Quasars
+### Filter Quasars
 
 * Filter the Quasars that satisfy the the [bit condition](http://www.sdss.org/dr12/algorithms/bitmasks/#BOSSTILE_STATUS): 
 
@@ -83,7 +83,7 @@ i.e.
 
 ### Write Fits files for each healpix.
 
-* Write a file for each healpix that contains THING_ID's. For each THING_ID coadd 'flux'. For example, considering the Healpix 24985, there are three different THING_ID with their corresponding coadd, and_mask and or_mask:
+* Write a file for each healpix that contains THING_ID's. For each THING_ID coadd 'flux'. For example, considering the Healpix 24985, there are three different THING_ID with their corresponding coadd, ivar, and_mask and or_mask:
 	
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/healpix.jpg)
 

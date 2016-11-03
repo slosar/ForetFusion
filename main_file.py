@@ -18,7 +18,7 @@ def split_pixel(pixel, Qsos):
         if Qsos.verbose and i % 5 == 0: print ('#-- pix', i, {lpix: thingid_repeat})
         result = []
 
-        for th_id in [535186301, 421566249, 445826962]: #thingid_repeat.keys():
+        for th_id in thingid_repeat.keys():
             print (thingid_repeat.keys())
             dict_qso = Qsos.get_files(thing_id = th_id)
             old_qsos = len(list(dict_qso.keys()))
