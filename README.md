@@ -73,6 +73,9 @@ i.e.
 
 ![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_3.jpg)
 
+![](https://github.com/ja-vazquez/ForetFusion/blob/master/figs/THING_ID_4.jpg)
+
+
 
 * Write a file for each healpix that contains THING_ID's and for each one the coadd 'flux','loglam':
 	
