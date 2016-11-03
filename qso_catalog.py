@@ -25,7 +25,7 @@ params1 = {'backend': 'pdf',
 class Ini_params():
     def __init__(self):
 
-        self.trim_chisq  = 0                              #Thresold to discriminate from coadds
+        self.trim_chisq  = 0.5                              #Thresold to discriminate from coadds
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
         self.Npix_side   = 2**6                           #Nside to compute healpix
 
