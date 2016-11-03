@@ -27,10 +27,10 @@ if rank == 0:
     #df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
     Qsos    = Qso_catalog(df_fits, verbose = True)
 
-    Qsos.rep_thid    = 1
+    Qsos.rep_thid    = 4
     Qsos.write_master= True
     Qsos.write_ffits = False
-    Qsos.show_plots  = False
+    Qsos.show_plots  = True
     Qsos.write_names = False
     Qsos.write_hist  = True
     Qsos.need_files  = True

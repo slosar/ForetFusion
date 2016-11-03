@@ -25,7 +25,7 @@ params1 = {'backend': 'pdf',
 class Ini_params():
     def __init__(self):
 
-        self.trim_chisq  = 2                              #Thresold to discriminate from coadds
+        self.trim_chisq  = 0                              #Thresold to discriminate from coadds
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
         self.Npix_side   = 2**6                           #Nside to compute healpix
 
@@ -36,7 +36,7 @@ class Ini_params():
         self.show_plots  = False                          #must be False when using mpi
         self.need_files  = False                          #If files needed get them from bnl-cluster
 
-        self.dir_spec    = 'data/spectra/'
+        self.dir_spec    = 'spectra/'
         self.dir_v5_10   = 'v5_10_0/spectra/'
         self.pix_dir     = 'healpix/'
 
