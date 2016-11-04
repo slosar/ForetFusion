@@ -25,7 +25,7 @@ params1 = {'backend': 'pdf',
 class Ini_params():
     def __init__(self):
 
-        self.trim_chisq  = 0.5                              #Thresold to discriminate from coadds
+        self.trim_chisq  = 2                              #Thresold to discriminate from coadds
         self.rep_thid    = 4                              #Times we want a THING_ID repeated
         self.Npix_side   = 2**6                           #Nside to compute healpix
 
@@ -242,36 +242,28 @@ class Qso_catalog(Ini_params):
     def coadds(self, dict_file):
         """ Add coadd, and_mask and or_mask columns for a given THING_ID """
 
-        th_id = self.th_id
-
         flux, ivar   = 'flux_%s', 'ivar_%s'
         or_mask      = 'or_mask_%s'
         and_mask     = 'and_mask_%s'
-        coadd_id     = 'coadd_%s'%(th_id)
-        flux_ivar_id = 'flux_ivar_%s'%(th_id)
-        ivar_id      = ivar%(th_id)
-        or_mask_id   = or_mask%(th_id)
-        and_mask_id  = and_mask%(th_id)
-
 
         for fqso in list(dict_file.keys()):
             columns = {'flux': flux%(fqso), 'ivar': ivar%(fqso), 'or_mask': or_mask%(fqso), 'and_mask': and_mask%(fqso)}
             dict_file[fqso].rename(columns= columns, inplace=True)
 
         df_coadd = pd.concat(dict_file.values(), axis=1).fillna(0)
-        df_coadd[flux_ivar_id] = 0
-        df_coadd[ivar_id]      = 0
+        df_coadd['flux_ivar'] = 0
+        df_coadd['ivar']      = 0
 
         for _, fqso in enumerate(dict_file.keys()):
-            df_coadd[flux_ivar_id]    += df_coadd[flux%(fqso)]*df_coadd[ivar%(fqso)]
-            df_coadd[ivar_id]         += df_coadd[ivar%(fqso)]
+            df_coadd['flux_ivar']    += df_coadd[flux%(fqso)]*df_coadd[ivar%(fqso)]
+            df_coadd['ivar']         += df_coadd[ivar%(fqso)]
 
-        df_coadd[and_mask_id] = (reduce(lambda x, y: x & y, [df_coadd[and_mask%(i)].astype(int) for i in dict_file.keys()]))
-        df_coadd[or_mask_id]  = (reduce(lambda x, y: x | y, [df_coadd[or_mask%(i)].astype(int)  for i in dict_file.keys()]))
-        df_coadd[coadd_id]    = df_coadd[flux_ivar_id] / df_coadd[ivar_id]
+        df_coadd['and_mask'] = (reduce(lambda x, y: x & y, [df_coadd[and_mask%(i)].astype(int) for i in dict_file.keys()]))
+        df_coadd['or_mask']  = (reduce(lambda x, y: x | y, [df_coadd[or_mask%(i)].astype(int)  for i in dict_file.keys()]))
+        df_coadd['coadd']    = df_coadd['flux_ivar'] / df_coadd['ivar']
 
         self.df_coadd = df_coadd.fillna(0)
-        return self.df_coadd[[coadd_id, ivar_id, and_mask_id, or_mask_id]]
+        return self.df_coadd[['coadd', 'ivar', 'and_mask', 'or_mask']]
 
 
 
@@ -326,19 +318,20 @@ class Qso_catalog(Ini_params):
 
     def write_fits(self, result, lpix):
          """Write fits file for each heakpix pixel"""
-         data    = pd.concat([r for r in result], axis=1).fillna(0)
-         nrows   = len(data.index)
-         data    = data.reset_index().to_dict(orient='list')
-         names   = list(data)
-         formats = ['f4']*len(names)
-         fdata   = np.zeros(nrows, dtype=dict(names= names, formats=formats))
-         fdata   = {key:np.array(value) for key,value in data.items()}
 
          file_name = os.path.join(self.pix_dir, 'pix_%s.fits'%(lpix))
-         if os.path.isfile(file_name): os.system("rm %s"%(file_name))
+         fits = fitsio.FITS(file_name, 'rw', clobber=True)
+         for (thid, data) in result:
+            nrows   = len(data.index)
+            data    = data.reset_index().to_dict(orient='list')
+            names   = list(data)
+            formats = ['f4']*len(names)
+            fdata   = np.zeros(nrows, dtype=dict(names= names, formats=formats))
+            fdata   = {key:np.array(value) for key,value in data.items()}
 
-         fits = fitsio.FITS(file_name, 'rw')
-         fits.write(fdata, header={'Healpix':'%s'%(lpix), self.full_file: 'Npix_side =%s'%(self.Npix_side)})
+            fits.write(fdata, header={'Healpix':'%s'%(lpix),
+                                      self.full_file:'Npix_side =%s'%(self.Npix_side)},
+                              extname= str(thid))
          fits.close()
 
          if self.verbose: print ('... Writing FITS file: %s'%(lpix))

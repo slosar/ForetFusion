@@ -31,9 +31,6 @@ def read_fits(dir_fits, file_name, columns):
 
     #http://stackoverflow.com/questions/30283836/
     # creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
-    #fits_read  = fits[1].read(columns= fits_cols).byteswap().newbyteorder()
-    #fits_to_df = {col: fits_read[col] for col in fits_cols}
-
     fits_read  = fits[1].read(columns= fits_cols)
     fits_to_df = {col:fits_read[col].byteswap().newbyteorder() for col in fits_cols}
     df = pd.DataFrame(fits_to_df)
@@ -41,10 +38,9 @@ def read_fits(dir_fits, file_name, columns):
 
 
 
-#Just In case we need to get the spec files from the sdss-website
-#we need import mechanize and from base64 import b64encode
-
 if False:
+    #Just In case we need to get the spec files from the sdss-website
+    #we need import mechanize and from base64 import b64encode
     def get_web_files(self, file_name, passwd):
         """nasty hack to get files from sdss website, but will change it later,
             only works with Python2"""

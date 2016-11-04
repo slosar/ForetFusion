@@ -12,14 +12,13 @@ that satisfy the bit condition and also
 """
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:]):
+    for i, lpix in enumerate(pixel[:2]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print ('#-- pix', i, {lpix: thingid_repeat})
         result = []
 
         for th_id in thingid_repeat.keys():
-            print (thingid_repeat.keys())
             dict_qso = Qsos.get_files(thing_id = th_id)
             old_qsos = len(list(dict_qso.keys()))
             dict_file, dict_chisq, dict_qso = Qsos.cal_chisq(dict_qso)
@@ -30,10 +29,10 @@ def split_pixel(pixel, Qsos):
             if len_files == 0: continue
             dfall_qsos = Qsos.coadds(dict_file)
 
-            if Qsos.write_ffits:  result.append(dfall_qsos)
+            if Qsos.write_ffits:  result.append((th_id, dfall_qsos))
             if Qsos.show_plots:   Qsos.plot_coadds(dict_chisq)
             if Qsos.write_master:
                 for info in dict_qso.values(): Qsos.all_info.append((lpix, th_id, info))
 
-        if Qsos.write_ffits and not result: Qsos.write_fits(result, lpix)
+        if Qsos.write_ffits: Qsos.write_fits(result, lpix)
     return 0
