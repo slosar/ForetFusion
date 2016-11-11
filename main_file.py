@@ -1,8 +1,5 @@
 
 """
-Same as sdss_catalog.py, but no comments
-
-Running the qso_catalog.py:
 * It goes through the SpAll file and filter all qsos in the BOSS, EBOSS
 that satisfy the bit condition and also
     'CLASS== "QSO" & (OBJTYPE=="QSO" | ''OBJTYPE=="NA".) & THING_ID != -1'
@@ -15,29 +12,27 @@ that satisfy the bit condition and also
 """
 
 def split_pixel(pixel, Qsos):
-    for i, lpix in enumerate(pixel[:]):
+    for i, lpix in enumerate(pixel[:2]):
         thingid_repeat = Qsos.pix_uniqueid(lpix)
         if not thingid_repeat: continue
         if Qsos.verbose and i % 5 == 0: print ('#-- pix', i, {lpix: thingid_repeat})
         result = []
 
         for th_id in thingid_repeat.keys():
-            qso_files = Qsos.get_files(thing_id = th_id) 
-            dic_file, dic_chisq, dict_z = Qsos.cal_chisq(qso_files)
+            dict_qso = Qsos.get_files(thing_id = th_id)
+            old_qsos = len(list(dict_qso.keys()))
+            dict_file, dict_chisq, dict_qso = Qsos.cal_chisq(dict_qso)
 
-            frac = len(dic_file)*1./len(qso_files)
+            len_files = len(list(dict_qso.keys()))
+            if Qsos.write_hist:   Qsos.write_stats_file('dist', th_id, old_qsos, len_files)
 
-            if Qsos.write_hist: Qsos.write_stats_file('{}\t{}\t{}'.format(th_id, len(qso_files), frac), 'dist')
-            if Qsos.show_plots: Qsos.plot_chisq_dist(frac)
+            if len_files == 0: continue
+            dfall_qsos = Qsos.coadds(dict_file)
 
-            if(frac == 0):
-                continue
+            if Qsos.write_ffits:  result.append((th_id, dfall_qsos))
+            if Qsos.show_plots:   Qsos.plot_coadds(dict_chisq)
+            if Qsos.write_master:
+                for info in dict_qso.values(): Qsos.all_info.append((lpix, th_id, info))
 
-            dfall_qsos = Qsos.coadds(dic_file)
-
-            if Qsos.write_ffits:  result.append(dfall_qsos[[Qsos.coadd_id, Qsos.ivar_id, Qsos.and_mask_id,Qsos.or_mask_id]])
-            if Qsos.write_master: Qsos.all_lpix.append(lpix); Qsos.all_thid.append(th_id); Qsos.all_qfiles.append(dict_z)
-            if Qsos.show_plots: Qsos.plot_coadds(dfall_qsos, dic_chisq)
-	
-        if Qsos.write_ffits and (len(result) !=0) : Qsos.write_fits(result, lpix)
-   
+        if Qsos.write_ffits: Qsos.write_fits(result, lpix)
+    return 0
