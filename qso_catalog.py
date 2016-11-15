@@ -56,7 +56,7 @@ class Ini_params():
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
         self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS','OBJTYPE',
-                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING','MODELMAG']
+                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
@@ -105,9 +105,14 @@ class Qso_catalog(Ini_params):
         """Filter quasars given the condition"""
 
         if self.verbose: self.print_filter_qsos(self.df_fits, 'Bit')
-            # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
-        self.df_fits  = self.df_fits.query(condition)
+	
+	    #convert bits to strings
+        str_objs = self.df_fits.dtypes[self.df_fits.dtypes == np.object].index.values
+        for str_obj in str_objs:
+            self.df_fits[str_obj] = self.df_fits[str_obj].str.decode("utf-8")
 
+	    # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
+        self.df_fits  = self.df_fits.query(condition)
 
         if self.verbose: self.print_filter_qsos(self.df_fits, 'General')
             # and satisfy the bit condition (is a quasar)
@@ -331,9 +336,8 @@ class Qso_catalog(Ini_params):
 
             fits.write(fdata, header={'Healpix':'%s'%(lpix),
                                       self.full_file:'Npix_side =%s'%(self.Npix_side)},
-                              extname= str(thid))
+                              extname=str(thid))
          fits.close()
-
          if self.verbose: print ('... Writing FITS file: %s'%(lpix))
 
 
@@ -409,10 +413,25 @@ class Qso_catalog(Ini_params):
         plt.show(block=True)
 
 
+    def plot_bad_spec(self, size):
+        total_dist = []
+        for i in np.arange(size):
+            dist   = pd.read_csv(self.specs_bad + '_{}.csv'.format(i), sep='\s',
+                      names = ['THING_ID', 'specs', 'accepted'], skiprows=2)
+            total_dist.append(dist)
+        df = pd.concat(total_dist)
+        for names in df['specs'].tolist():
+            plate, name  = names.split('/')
+            if not os.path.isfile(self.dir_spec + names): self.get_bnl_files(plate, names)
+            df_file = read_fits(self.dir_spec , names, self.spec_cols).set_index('loglam')
+            df_file['flux'].plot()
+            print(name.replace('.fits',''))
+            plt.savefig('File_bad_%s.png'%(name.replace('.fits','')))
+            plt.show(block=True)
 
 
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(8)
-
+    #Qsos.plot_stats(8)
+    Qsos.plot_bad_spec(12)

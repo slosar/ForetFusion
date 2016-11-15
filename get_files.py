@@ -19,7 +19,7 @@ def read_sub_fits(dir_fits, file_name):
 
 
 
-def read_fits(dir_fits, file_name, columns):
+def read_fits(dir_fits, file_name, fits_cols):
     """Read selected columns in the .fits file. Return a DataFrame"""
     file_name = os.path.join(dir_fits, file_name)
     if not os.path.isfile(file_name):
@@ -27,7 +27,6 @@ def read_fits(dir_fits, file_name, columns):
         MPI.COMM_WORLD.Abort()
 
     fits       = fitsio.FITS(file_name)
-    fits_cols  = columns
 
     #http://stackoverflow.com/questions/30283836/
     # creating-pandas-dataframe-from-numpy-array-leads-to-strange-errors
