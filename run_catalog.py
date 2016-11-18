@@ -21,25 +21,30 @@ size = comm.Get_size()
 
 
 dir_files = 'data/'
-file_name = 'subset_spAll-v5_10_0.csv'
+#file_name = 'subset_spAll-v5_10_0.csv'
+#file_name = 'spAll-v5_10_0.fits'
+file_name = 'DR14Q_v1_1.fits'
 
-spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS',
-                'EBOSS_TARGET0','EBOSS_TARGET1','OBJTYPE','Z','Z_ERR','ZWARNING']
+#spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS',
+#                'EBOSS_TARGET0','EBOSS_TARGET1','OBJTYPE','Z','Z_ERR','ZWARNING']
+
+spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','Z','Z_ERR','ZWARNING']
 
 if rank == 0:
     #df_fits = read_sub_fits(dir_files, file_name)
-    df_fits = read_fits(dir_files, 'spAll-v5_10_0.fits', spall_cols)
+    df_fits = read_fits(dir_files, file_name, spall_cols)
     Qsos    = Qso_catalog(df_fits, verbose = True)
 
     Qsos.rep_thid    = 1
     Qsos.write_master= True
     Qsos.write_ffits = True
-    Qsos.show_plots  = False
+    Qsos.show_plots  = True
     Qsos.write_names = False
     Qsos.write_hist  = True
-    Qsos.need_files  = False
+    Qsos.need_files  = True
 
-    Qsos.filtering_qsos(condition= Qsos.condition)
+    Qsos.own_filter()
+    #Qsos.filtering_qsos(condition= Qsos.condition)
     unique_pixels = Qsos.adding_pixel_column()
     #print (Qsos.df_qsos.query('PIX == 6219 & THING_ID == 77964771'))
 
@@ -64,8 +69,7 @@ all_info  = comm.gather(Qsos.all_info, root=0)
 
 if Qsos.write_hist: Qsos.write_stats_close()
 if rank == 0:
-    if Qsos.write_hist and Qsos.show_plots:
-        Qsos.plot_stats(size)
+    if Qsos.write_hist and Qsos.show_plots: Qsos.plot_stats(size)
     if Qsos.write_master: Qsos.master_fits(all_info)
 
 
