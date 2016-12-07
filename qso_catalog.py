@@ -56,7 +56,7 @@ class Ini_params():
                            'OBJTYPE=="NA".ljust(16)) & THING_ID != -1'
 
         self.spall_cols  = ['RA','DEC','THING_ID','MJD','PLATE','FIBERID','BOSS_TARGET1','CLASS','OBJTYPE',
-                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING','MODELMAG']
+                            'EBOSS_TARGET0','EBOSS_TARGET1','Z','Z_ERR','ZWARNING']
 
         self.spec_cols   = ['flux','loglam','ivar','and_mask','or_mask', 'wdisp', 'sky', 'model']
 
@@ -98,6 +98,14 @@ class Qso_catalog(Ini_params):
         print ("Total qsos = {} \n ------------------".format(len(df)))
 
 
+    def own_filter(self):
+        #convert bits to strings
+        str_objs = self.df_fits.dtypes[self.df_fits.dtypes == np.object].index.values
+        for str_obj in str_objs:
+            self.df_fits[str_obj] = self.df_fits[str_obj].str.decode("utf-8")
+
+        self.df_qsos = self.df_fits.query('THING_ID != -1 & THING_ID != 0')
+        return 0
 
 
 
@@ -105,9 +113,14 @@ class Qso_catalog(Ini_params):
         """Filter quasars given the condition"""
 
         if self.verbose: self.print_filter_qsos(self.df_fits, 'Bit')
-            # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
-        self.df_fits  = self.df_fits.query(condition)
 
+        #convert bits to strings
+        str_objs = self.df_fits.dtypes[self.df_fits.dtypes == np.object].index.values
+        for str_obj in str_objs:
+            self.df_fits[str_obj] = self.df_fits[str_obj].str.decode("utf-8")
+
+        # only those with CLASS=QSO & OBJTYPE=(QSO|NA)
+        self.df_fits  = self.df_fits.query(condition)
 
         if self.verbose: self.print_filter_qsos(self.df_fits, 'General')
             # and satisfy the bit condition (is a quasar)
@@ -135,6 +148,7 @@ class Qso_catalog(Ini_params):
             #setting 'PIX' and 'THING_ID' as indices
         self.df_qsos = self.df_qsos.set_index(['PIX','THING_ID'], drop=False).drop('PIX', 1).sort_index()
         if self.verbose: print (self.df_qsos.head())
+
         return unique_pixels
 
 
@@ -273,7 +287,6 @@ class Qso_catalog(Ini_params):
         """Plot the spectra and coadds"""
 
         xlimits = [3.55, 4]; ylimits = [-10, 25]
-
         plt.figure(figsize = (18, 8))
         ax = plt.subplot(1, 2, 1)
         for fqso in dic_chisq.keys():
@@ -282,7 +295,7 @@ class Qso_catalog(Ini_params):
         plt.legend(loc='best')
 
         ax2 = plt.subplot(1, 2, 2)
-        self.df_coadd['coadd_%s'%(self.th_id)].plot(label='coadd_%s'%(self.th_id), xlim=xlimits, ylim=ylimits, ax=ax2)
+        self.df_coadd['coadd'].plot(label='coadd_%s'%(self.th_id), xlim=xlimits, ylim=ylimits, ax=ax2)
         plt.legend(loc='best')
         plt.title('THING_ID: %s'%(self.th_id))
         plt.show(block=True)
@@ -331,9 +344,8 @@ class Qso_catalog(Ini_params):
 
             fits.write(fdata, header={'Healpix':'%s'%(lpix),
                                       self.full_file:'Npix_side =%s'%(self.Npix_side)},
-                              extname= str(thid))
+                              extname=str(thid))
          fits.close()
-
          if self.verbose: print ('... Writing FITS file: %s'%(lpix))
 
 
@@ -409,10 +421,26 @@ class Qso_catalog(Ini_params):
         plt.show(block=True)
 
 
+    def plot_bad_spec(self, size):
+        total_dist = []
+        for i in np.arange(size):
+            dist   = pd.read_csv(self.specs_bad + '_{}.csv'.format(i), sep='\s',
+                      names = ['THING_ID', 'specs', 'chisq'], skiprows=2)
+            total_dist.append(dist)
+        df = pd.concat(total_dist)
+        print([tuple(x) for x in df[['specs','chisq']].values])
+        for names, chisq in [tuple(x) for x in df[['specs','chisq']].values]: #df['specs'].tolist():
+            plate, name  = names.split('/')
+            if not os.path.isfile(self.dir_spec + names): self.get_bnl_files(plate, names)
+            df_file = read_fits(self.dir_spec , names, self.spec_cols).set_index('loglam')
+            df_file['flux'].plot()
+            print(name.replace('.fits',''))
+            plt.savefig('File_chisq_%.2f_%s.png'%(chisq, name.replace('.fits','')))
+            plt.show(block=True)
 
 
 if __name__=='__main__':
     print ("goofing around :P ")
     Qsos    = Qso_catalog(None, verbose = True)
-    Qsos.plot_stats(8)
-
+    #Qsos.plot_stats(8)
+    Qsos.plot_bad_spec(12)
